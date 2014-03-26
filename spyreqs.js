@@ -66,7 +66,7 @@
 
     function deleteAsync(url, etag) {
         var defer = new $.Deferred();
-
+        
         executor.executeAsync({
             url: url,
             method: "POST",
@@ -796,6 +796,12 @@
             getRegionalSettings: function(query) {
                 var url = baseUrl + "/web/RegionalSettings?" + checkQuery(query) + targetStr;
                 return getAsync(url);
+            },
+            getAppUrl:function(){
+                return appUrl;
+            },
+            getHostUrl:function(){
+                return hostUrl;
             }
         },
 		version : function () { say ("Hello, spyreqs ver " + spyreqs_version); }
