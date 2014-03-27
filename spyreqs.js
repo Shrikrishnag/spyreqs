@@ -660,6 +660,10 @@
                 var url = appUrl + "/_api/web/GetFolderByServerRelativeUrl('" + folderName + "')/Files/Add(url='" + fileName + "',overwrite=true)?";
                 return addFile(url, file);
             },
+            getHostListItemAttachments:function(listTitle,itemId){
+                var url = baseUrl + "web/lists/getByTitle('" + listTitle + "')/Items("+itemId+")/AttachmentFiles?" + targetStr;
+                return getAsync(url);
+            },
             /**
              * gets the Users of the Site
              * @param  {string} query [the query to execute e.g. "$filter=Email ne ''"] 
