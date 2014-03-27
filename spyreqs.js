@@ -664,6 +664,10 @@
                 var url = baseUrl + "web/lists/getByTitle('" + listTitle + "')/Items("+itemId+")/AttachmentFiles?" + targetStr;
                 return getAsync(url);
             },
+            addHostListItemAttachment:function(listTitle,itemId,fileName,file){
+                var url = baseUrl + "web/lists/getByTitle('" + listTitle + "')/Items("+itemId+")/AttachmentFiles/add(FileName='"+fileName+"')?" + targetStr;
+                return createAsync(url,file);  
+            },
             /**
              * gets the Users of the Site
              * @param  {string} query [the query to execute e.g. "$filter=Email ne ''"] 
