@@ -694,7 +694,7 @@
              */
             addHostFolder:function(documentLibrary,folderName){
                 var url = baseUrl + "web/folders?" + targetStr,
-                    folderName = "/" + documentLibrary + "/" + folderName,
+                    folderName = documentLibrary + "/" + folderName,
                     data = {
                         '__metadata': {
                             'type': 'SP.Folder'
