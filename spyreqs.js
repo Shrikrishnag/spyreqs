@@ -76,9 +76,9 @@
             url: url,
             method: "POST",
             headers: {
-                "Accept": "application/json; odata=verbose"
+                "Accept": "application/json"
             },
-            contentType: "application/json",
+            contentType: "application/json;odata=verbose",
             body: JSON.stringify(data),
             success: function (data) {
                 defer.resolve(JSON.parse(data.body));
