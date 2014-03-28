@@ -69,6 +69,30 @@
         return defer.promise();
     }
 
+    function addFolder(url,folderName){
+        var defer = new $.Deferred();
+
+        executor.executeAsync({
+            url: url,
+            method: "POST",
+            headers: {
+                "Accept": "application/json; odata=verbose"
+            },
+            contentType: "application/json;odata=verbose",
+            body: { 
+                '__metadata': { 'type': 'SP.Folder' },
+                'ServerRelativeUrl':folderName
+            },
+            success: function (data) {
+                defer.resolve(JSON.parse(data.body));
+            },
+            fail: function (error) {
+                defer.reject(error);
+            }
+        });
+        return defer.promise();
+    }
+
     function deleteAsync(url, etag) {
         var defer = new $.Deferred();
         
@@ -664,6 +688,17 @@
             getHostFolderFolders:function(folderName){
                 var url = baseUrl + "web/GetFolderByServerRelativeUrl('" + folderName + "')/Folders?" + targetStr;
                 return getAsync(url);
+            },
+            /**
+             * creates a Folder To a Host Document Librry
+             * @param {string} documentLibrary [the Name of the Document Library to which the Folder should be added]
+             * @param {string} folderName      [the Name of the Folder]
+             */
+            addHostFolder:function(documentLibrary,folderName){
+                var url = baseUrl + "web/folders?" + targetStr,
+                    folderName = documentLibrary + "/" + folderName;
+
+                return addFolder(url, folderName);
             },
             addHostFile: function (folderName, fileName, file) {
                 var url = baseUrl + "web/GetFolderByServerRelativeUrl('" + folderName + "')/Files/Add(url='" + fileName + "',overwrite=true)?" + targetStr;
