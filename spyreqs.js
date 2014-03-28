@@ -69,7 +69,7 @@
         return defer.promise();
     }
 
-    function addFolder(url,folderName){
+    function addFolder(url,data){
         var defer = new $.Deferred();
 
         executor.executeAsync({
@@ -79,10 +79,7 @@
                 "Accept": "application/json; odata=verbose"
             },
             contentType: "application/json;odata=verbose",
-            body: { 
-                '__metadata': { 'type': 'SP.Folder' },
-                'ServerRelativeUrl':folderName
-            },
+            body: JSON.stringify(data),
             success: function (data) {
                 defer.resolve(JSON.parse(data.body));
             },
@@ -696,9 +693,15 @@
              */
             addHostFolder:function(documentLibrary,folderName){
                 var url = baseUrl + "web/folders?" + targetStr,
-                    folderName = "/" + documentLibrary + "/" + folderName;
+                    folderName = "/" + documentLibrary + "/" + folderName,
+                    data = {
+                        '__metadata': {
+                            'type': 'SP.Folder'
+                        },
+                        'ServerRelativeUrl': folderName
+                    };
 
-                return addFolder(url, folderName);
+                return addFolder(url, data);
             },
             addHostFile: function (folderName, fileName, file) {
                 var url = baseUrl + "web/GetFolderByServerRelativeUrl('" + folderName + "')/Files/Add(url='" + fileName + "',overwrite=true)?" + targetStr;
