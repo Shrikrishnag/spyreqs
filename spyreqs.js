@@ -696,7 +696,7 @@
              */
             addHostFolder:function(documentLibrary,folderName){
                 var url = baseUrl + "web/folders?" + targetStr,
-                    folderName = documentLibrary + "/" + folderName;
+                    folderName = "/" + documentLibrary + "/" + folderName;
 
                 return addFolder(url, folderName);
             },
