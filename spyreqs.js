@@ -78,7 +78,7 @@
             headers: {
                 "Accept": "application/json; odata=verbose"
             },
-            contentType: "application/json;odata=verbose",
+            contentType: "application/json",
             body: JSON.stringify(data),
             success: function (data) {
                 defer.resolve(JSON.parse(data.body));
