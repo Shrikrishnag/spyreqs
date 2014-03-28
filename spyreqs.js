@@ -76,7 +76,7 @@
             url: url,
             method: "POST",
             headers: {
-                "ACCEPT": "application/json;odata=verbose;"
+                "ACCEPT": "application/json; odata=verbose;"
             },
             contentType: "application/json;odata=verbose",
             body: JSON.stringify(data),
