@@ -17,25 +17,21 @@
     function getAsync(url) {
         var defer = new $.Deferred();
 
-        try {
-            executor.executeAsync({
-                url: url,
-                method: "GET",
-                dataType: "json",
-                headers: {
-                    Accept: "application/json;odata=verbose"
-                },
-                success: function(data) {
-                    defer.resolve(JSON.parse(data.body));
-                },
-                fail: function(error) {
-                    defer.reject(error);
-                }
-            });
-        }catch (error){
-            defer.reject(error);
-        }
-        
+        executor.executeAsync({
+            url: url,
+            method: "GET",
+            dataType: "json",
+            headers: {
+                Accept: "application/json;odata=verbose"
+            },
+            success: function(data) {
+                defer.resolve(JSON.parse(data.body));
+            },
+            fail: function(error) {
+                defer.reject(error);
+            }
+        });
+
         return defer.promise();
     }
 
@@ -661,8 +657,8 @@
                 var url = appUrl + "/_api/web/GetFileByServerRelativeUrl('" + fileUrl + "')/$value?";
                 return getFile(url);
             },
-            getHostFolder:function(folderName){
-                var url = baseUrl + "web/GetFolderByServerRelativeUrl('" + folderName + "')?" + targetStr;
+            getHostFolderFiles:function(folderName){
+                var url = baseUrl + "web/GetFolderByServerRelativeUrl('" + folderName + "')/Files?" + targetStr;
                 return getAsync(url);
             },
             addHostFile: function (folderName, fileName, file) {
