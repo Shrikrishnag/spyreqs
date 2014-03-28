@@ -652,6 +652,10 @@
                 var url = appUrl + "/_api/web/GetFileByServerRelativeUrl('" + fileUrl + "')/$value?";
                 return getFile(url);
             },
+            getHostFolder:function(folderName){
+                var url = baseUrl + "web/GetFolderByServerRelativeUrl('" + folderName + "')?" + targetStr;
+                return getAsync(url);
+            },
             addHostFile: function (folderName, fileName, file) {
                 var url = baseUrl + "web/GetFolderByServerRelativeUrl('" + folderName + "')/Files/Add(url='" + fileName + "',overwrite=true)?" + targetStr;
                 return addFile(url, file);
