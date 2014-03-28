@@ -661,6 +661,10 @@
                 var url = baseUrl + "web/GetFolderByServerRelativeUrl('" + folderName + "')/Files?" + targetStr;
                 return getAsync(url);
             },
+            getHostFolderFolders:function(folderName){
+                var url = baseUrl + "web/GetFolderByServerRelativeUrl('" + folderName + "')/Folders?" + targetStr;
+                return getAsync(url);
+            },
             addHostFile: function (folderName, fileName, file) {
                 var url = baseUrl + "web/GetFolderByServerRelativeUrl('" + folderName + "')/Files/Add(url='" + fileName + "',overwrite=true)?" + targetStr;
                 return addFile(url, file);
