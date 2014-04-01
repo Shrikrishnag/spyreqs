@@ -401,6 +401,29 @@ spyreqs.jsom.addHostListItem("My List", {"Title":"my item", "Score":90})
 <h3>spyreqs.jsom.addAppListItem</h3>
 **description:** adds an item to an App List.Parameters and return value same as spyreqs.jsom.addHostListItem.
 
+<h3>spyreqs.jsom.updateHostListItem</h3>
+**description:** updates an item to a Host List.<br>
+**parameters:**
+<ul>
+	<li>string listTitle:the list Title</li>
+	<li>object itemObj : the item contents to update</li>
+	<li>number itemId : the item id</li>
+</ul>
+**returns:** A promise that contains the id of the created item
+```javascript
+spyreqs.jsom.updateHostListItem("My List", {"Title":"my item", "Score":90}, 9)
+	.then(function(itemId) {
+		alert("item was updated, id:"+itemId);
+	},
+    function(error) {
+    	alert('updateHostListItem request failed. ' +  error.args.get_message() + '\n' + error.args.get_stackTrace());
+    });
+```
+
+<h3>spyreqs.jsom.updateAppListItem</h3>
+**description:** updates an item to an App List. Parameters and return value same as spyreqs.jsom.updateHostListItem.
+
+
 <h3>spyreqs.jsom.createHostList</h3>
 **description:** creates a List to the Host Site.<br>
 **parameters:**
