@@ -4,7 +4,7 @@
         executor, baseUrl, targetStr,
 		notAnApp_Flag = 0, 
 		say, rest, jsom, 
-        spyreqs, spyreqs_version = "0.0.6";
+        spyreqs, spyreqs_version = "0.0.7";
 
     if (typeof window.console !== 'undefined') {
         say = function (what) { window.console.log(what); };
@@ -362,7 +362,7 @@
 
 			if (typeof listObj.title === 'undefined') {
 				say('createList cannot create without .title');
-				return;
+				return; // ToDo, this should in fact reject the promise onTimer, after has been returned
 			}
 			if (typeof listObj.url !== 'undefined') { listCreationInfo.set_url(listObj.url); }
 			if (typeof listObj.description !== 'undefined') { listCreationInfo.set_description(listObj.description); }
@@ -456,6 +456,31 @@
 					sender: sender,
 					args: args
 				};
+				defer.reject(error);
+			}
+
+			return defer.promise();
+		},
+		updateListItem: function (c, listTitle, itemObj, itemId) {
+			var web, theList, theListItem, prop, itemId, itemCreateInfo, defer = new $.Deferred();
+		 
+			web = c.appContextSite.get_web();
+			theList = web.get_lists().getByTitle(listTitle);			 
+			
+			theListItem = theList.getItemById(itemId);
+			for (prop in itemObj) {
+				theListItem.set_item(prop, itemObj[prop]);
+			}
+			theListItem.update();
+			c.context.load(theListItem);
+			c.context.executeQueryAsync(success, fail);
+
+			function success() {
+				defer.resolve(itemId);
+			}
+
+			function fail(sender, args) {
+				var error = { sender: sender, args: args };
 				defer.reject(error);
 			}
 
@@ -788,6 +813,21 @@
 				var c = newLocalContextInstance();
 				return jsom.addListItem(c, listTitle, itemObj);
 			},
+			updateAppListItem: function (listTitle, itemObj, itemId) {
+                /* example: 
+                spyreqs.jsom.updateAppListItem("My List", {"Title":"my item", "Score":90}, 9).then(
+                    function(itemId) { alert("item was added, id:"+itemId); },
+                    function(error) { alert('addHostListItem request failed. ' +  error.args.get_message() + '\n' + error.args.get_stackTrace() ); }
+                );  
+                */              
+                var c = newLocalContextInstance();
+				return jsom.updateListItem(c, listTitle, itemObj, itemId);
+            },
+			updateHostListItem: function (listTitle, itemObj, itemId) {
+                /* syntax example: see updateAppListItem example */            
+                var c = newRemoteContextInstance();
+				return jsom.updateListItem(c, listTitle, itemObj, itemId);
+            },
             createHostList: function (listObj) {
                 /* syntax example:
 					spyreqs.jsom.createHostList({
