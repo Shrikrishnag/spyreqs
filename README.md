@@ -1,7 +1,7 @@
 InEdu SPyReqs.js
 =====================
 
-(<b>S</b>hare<b>P<b/>oint-<b>Y<b/> not use this lib for<b>REQ<b/>uest<b>S<b/>!)
+(<b>S</b>hare<b>P</b>oint-<b>Y</b> not use this lib for<b>REQ</b>uest<b>S</b>!)
 
 Spyreqs is a library that contains general purpose methods useful for interacting with<br>
 the sharepoint lists and files.It is dependent on the jQuery.
