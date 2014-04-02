@@ -1,7 +1,7 @@
 InEdu SPyReqs.js
 =====================
 
-(SharePoint-Y not use this lib forREQuestS!)
+(<b>S</b>harePoint-Y not use this lib forREQuestS!)
 
 Spyreqs is a library that contains general purpose methods useful for interacting with<br>
 the sharepoint lists and files.It is dependent on the jQuery.
