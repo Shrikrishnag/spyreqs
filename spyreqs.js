@@ -354,19 +354,54 @@
             return defer.promise();
         },
 		createList: function (c, listObj) {				
-			var web, theList, listCreationInfo, template, field, defer = new $.Deferred();				
-			
+			var web, theList, listCreationInfo, template, field, defer = new $.Deferred(), val_temp, fn_temp, isValidAttrBool,
+				lciAttrs = {
+					"url" : "set_url",
+					"description" : "set_description",
+					"documentTemplateType" : "set_documentTemplateType",
+					"customSchemaXml" : "set_customSchemaXml",
+					"dataSourceProperties" : "set_dataSourceProperties",
+					"quickLaunchOption" : "set_quickLaunchOption",
+					"templateFeatureId" : "set_templateFeatureId"			
+				}, 
+				listAttrs = [
+					"contentTypesEnabled", "defaultContentApprovalWorkflowId",
+					"defaultDisplayFormUrl", "defaultEditFormUrl",
+					"defaultNewFormUrl", "documentTemplateUrl",
+					"draftVersionVisibility", "enableAttachments",
+					"enableFolderCreation",	"enableMinorVersions",
+					"enableModeration", "enableVersioning",
+					"forceCheckout", "hidden", "isApplicationList",
+					"isSiteAssetsLibrary", "multipleDataList",
+					"noCrawl", "onQuickLaunch", "validationFormula",
+					"validationMessage"
+				];
+			/*
+			params for listCreationInformation		 
+				customSchemaXml
+					Gets or sets a value that specifies the list schema of the new list.
+				dataSourceProperties
+					Gets or sets a value that specifies the properties of the data source of the new list.
+				   
+				templateFeatureId
+					Gets or sets a value that specifies the feature identifier of the feature that contains the list schema for the new list.
+								 
+				 			
+			*/
 			web = c.appContextSite.get_web();
-			listCreationInfo = new SP.ListCreationInformation();
-			listCreationInfo.set_title(listObj.title);
+			listCreationInfo = new SP.ListCreationInformation();			
 
 			if (typeof listObj.title === 'undefined') {
 				say('createList cannot create without .title');
-				return; // ToDo, this should in fact reject the promise onTimer, after has been returned
-			}
-			if (typeof listObj.url !== 'undefined') { listCreationInfo.set_url(listObj.url); }
-			if (typeof listObj.description !== 'undefined') { listCreationInfo.set_description(listObj.description); }
-
+				var args = { 
+					get_message : function() { return "createList cannot create without .title"; },		
+					get_stackTrace : function() { return null; }	
+				};				 
+				setTimeout( fail(null,args), 500 );
+				return defer.promise();	
+			}			
+			listCreationInfo.set_title(listObj.title);			
+			
 			if (typeof listObj.template === 'undefined') {
 				template = SP.ListTemplateType.genericList;
 			} else if (isNaN(listObj.template)) {
@@ -374,14 +409,27 @@
 			} else {
 				template = listObj.template;
 			}
-
 			listCreationInfo.set_templateType(template);
-			//say("list template number: " + template);
-			if (typeof listObj.quickLaunchOption !== 'undefined') {
-				// option to show list in quick actions menu
-				listCreationInfo.set_quickLaunchOption(listObj.quickLaunchOption);
-			}
-			theList = web.get_lists().add(listCreationInfo);
+			
+			// set any other attribute of listCreationInformation from listObject			 
+			for (var attr in listObj) {
+				val_temp = listObj[attr];
+				fn_temp = lciAttrs[attr];
+				if (typeof listCreationInfo[fn] == 'function') {
+					listCreationInfo[fn](val);
+				} 
+			}			
+			theList = web.get_lists().add(listCreationInfo);		
+			
+			// set any other attribute of list from listObject			
+			for (var attr in listObj) {
+				val_temp = listObj[attr];
+				if (listAttrs.indexOf(attr)>-1) {
+					theList[attr] = val;
+				}     
+			}	
+			theList.Update();
+			
 			c.context.load(theList);
 			c.context.executeQueryAsync(success, fail);
 
@@ -834,11 +882,13 @@
 				return jsom.updateListItem(c, listTitle, itemObj, itemId);
             },
             createHostList: function (listObj) {
-                /* syntax example:
+                /* please put all list attributes and listInformation attributes in listObj. 
+					syntax example:
 					spyreqs.jsom.createHostList({
 						"title":app_MainListName,	 
 						"url":app_MainListName, 
 						"template" : "genericList",
+						"hidden" : true,
 						"description" : "this is a list", 
 							fields : [	 
 								{"Name":"userId", "Type":"Text", "Required":"true"},								
