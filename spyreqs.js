@@ -428,7 +428,7 @@
 					theList[attr] = val_temp;
 				}     
 			}	
-			theList.Update();
+			//theList.Update();
 			
 			c.context.load(theList);
 			c.context.executeQueryAsync(success, fail);
