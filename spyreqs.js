@@ -374,7 +374,7 @@
 					"forceCheckout", "hidden", "isApplicationList",
 					"isSiteAssetsLibrary", "multipleDataList",
 					"noCrawl", "onQuickLaunch", "validationFormula",
-					"validationMessage"
+					"validationMessage", "direction"
 				];
 			/*
 			params for listCreationInformation		 
