@@ -416,7 +416,7 @@
 				val_temp = listObj[attr];
 				fn_temp = lciAttrs[attr];
 				if (typeof listCreationInfo[fn_temp] == 'function') {
-					listCreationInfo[fn_temp](val);
+					listCreationInfo[fn_temp](val_temp);
 				} 
 			}			
 			theList = web.get_lists().add(listCreationInfo);		
@@ -425,7 +425,7 @@
 			for (var attr in listObj) {
 				val_temp = listObj[attr];
 				if (listAttrs.indexOf(attr)>-1) {
-					theList[attr] = val;
+					theList[attr] = val_temp;
 				}     
 			}	
 			theList.Update();
