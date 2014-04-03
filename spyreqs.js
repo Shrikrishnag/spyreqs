@@ -628,6 +628,11 @@
                 var url = appUrl + "/_api/web/lists/getByTitle('" + listTitle + "')/Items(" + itemId + ")?";
                 return deleteAsync(url, etag);
             },
+            updateHostList:function(list){
+                //list must have Title, Id and __metadata with property type 
+                var url = baseUrl + "web/lists/getByTitle('" + list.Title + "')?" + targetStr;
+                return updateAsync(url, list);
+            },
             /**
              * updates an item in a Host List
              * @param  {string} listTitle [the title of the Host List]
