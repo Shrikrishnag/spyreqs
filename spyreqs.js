@@ -415,8 +415,8 @@
 			for (var attr in listObj) {
 				val_temp = listObj[attr];
 				fn_temp = lciAttrs[attr];
-				if (typeof listCreationInfo[fn] == 'function') {
-					listCreationInfo[fn](val);
+				if (typeof listCreationInfo[fn_temp] == 'function') {
+					listCreationInfo[fn_temp](val);
 				} 
 			}			
 			theList = web.get_lists().add(listCreationInfo);		
