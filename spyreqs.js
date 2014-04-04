@@ -805,9 +805,13 @@
                 var url = baseUrl + "web/SiteUsers?" + checkQuery(query) + targetStr;
                 return getAsync(url);
             },
-            getHostNode:function(){
-                var url = baseUrl + "web/navigation/GetNodeById(2215)?" + targetStr;
+            getHostNode:function(node){
+                var url = baseUrl + "web/navigation/GetNodeById('"+node+"')?" + targetStr;
                 return getAsync(url);
+            },
+            updateHostNode:function(node,nodeObj){
+                var url = baseUrl + "web/navigation/GetNodeById('"+node+"')?" + targetStr;
+                return updateAsync(url,nodeObj);
             }
         },
         jsom: {
