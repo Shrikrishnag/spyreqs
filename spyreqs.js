@@ -419,20 +419,21 @@
 					listCreationInfo[fn_temp](val_temp);
 				} 
 			}			
-			theList = web.get_lists().add(listCreationInfo);		
+			theList = web.get_lists().add(listCreationInfo);	
 			
-			c.context.load(theList);
-			c.context.executeQueryAsync(success, fail);
-
-			function success() {
-				// list created, add any list attributes				 	
-				for (var attr in listObj) {
+			// set any other attribute of list from listObject	
+			for (var attr in listObj) {
 					val_temp = listObj[attr];
 					if (listAttrs.indexOf(attr)>-1) {
 						theList[attr] = val_temp;
 					}     
 				}	
-				theList.Update();				
+			theList.update();	
+			
+			c.context.load(theList);
+			c.context.executeQueryAsync(success, fail);
+
+			function success() {						
 				// add fields
 				if (listObj.fields) {
 					// start creating fields
