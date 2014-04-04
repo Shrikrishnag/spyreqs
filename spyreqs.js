@@ -806,7 +806,7 @@
                 return getAsync(url);
             },
             getHostNode:function(){
-                var url = baseUrl + "web/navigation/GetNodeById(2215)/" + targetStr;
+                var url = baseUrl + "web/navigation/GetNodeById(2215)?" + targetStr;
                 return getAsync(url);
             }
         },
