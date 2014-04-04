@@ -355,15 +355,11 @@
         },
 		createList: function (c, listObj) {				
 			var web, theList, listCreationInfo, template, field, defer = new $.Deferred(), val_temp, fn_temp, isValidAttrBool,
-				lciAttrs = {
-					"url" : "set_url",
-					"description" : "set_description",
-					"documentTemplateType" : "set_documentTemplateType",
-					"customSchemaXml" : "set_customSchemaXml",
-					"dataSourceProperties" : "set_dataSourceProperties",
-					"quickLaunchOption" : "set_quickLaunchOption",
-					"templateFeatureId" : "set_templateFeatureId"			
-				}, 
+				lciAttrs = [
+					"url", "description", "documentTemplateType",
+					"customSchemaXml", "dataSourceProperties",
+					"quickLaunchOption", "templateFeatureId" 			
+				], 
 				listAttrs = [
 					"contentTypesEnabled", "defaultContentApprovalWorkflowId",
 					"defaultDisplayFormUrl", "defaultEditFormUrl",
@@ -411,10 +407,10 @@
 			}
 			listCreationInfo.set_templateType(template);
 			
-			// set any other attribute of listCreationInformation from listObject			 
+			// set any other attribute of listCreationInformation from listObject	
 			for (var attr in listObj) {
 				val_temp = listObj[attr];
-				fn_temp = lciAttrs[attr];
+				fn_temp = "set_" + attr;
 				if (typeof listCreationInfo[fn_temp] == 'function') {
 					listCreationInfo[fn_temp](val_temp);
 				} 
@@ -423,11 +419,12 @@
 			
 			// set any other attribute of list from listObject	
 			for (var attr in listObj) {
-					val_temp = listObj[attr];
-					if (listAttrs.indexOf(attr)>-1) {
-						theList[attr] = val_temp;
-					}     
-				}	
+				val_temp = listObj[attr];
+				fn_temp = "set_" + attr;				 
+				if (listAttrs.indexOf(attr)>-1) {
+					theList[fn_temp](val_temp);
+				}     
+			}	
 			theList.update();	
 			
 			c.context.load(theList);
