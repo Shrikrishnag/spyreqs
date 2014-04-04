@@ -806,7 +806,7 @@
                 return getAsync(url);
             },
             getHostNode:function(){
-                var url = baseUrl + "web/navigation/GetNodeById(1033)?" + targetStr;
+                var url = baseUrl + "web/navigation/GetNodeById(1033)/Children?" + targetStr;
                 return getAsync(url);
             }
         },
