@@ -421,20 +421,19 @@
 			}			
 			theList = web.get_lists().add(listCreationInfo);		
 			
-			// set any other attribute of list from listObject			
-			for (var attr in listObj) {
-				val_temp = listObj[attr];
-				if (listAttrs.indexOf(attr)>-1) {
-					theList[attr] = val_temp;
-				}     
-			}	
-			//theList.Update();
-			
 			c.context.load(theList);
 			c.context.executeQueryAsync(success, fail);
 
 			function success() {
-				// list created
+				// list created, add any list attributes				 	
+				for (var attr in listObj) {
+					val_temp = listObj[attr];
+					if (listAttrs.indexOf(attr)>-1) {
+						theList[attr] = val_temp;
+					}     
+				}	
+				theList.Update();				
+				// add fields
 				if (listObj.fields) {
 					// start creating fields
 					$.when(jsom.createListFields(c.context, theList, listObj.fields)).then(
@@ -565,6 +564,7 @@
 						break;
 					}
 				}
+				say(answerBool);
 				defer.resolve(answerBool);
 			}
 
@@ -887,18 +887,15 @@
 					spyreqs.jsom.createHostList({
 						"title":app_MainListName,	 
 						"url":app_MainListName, 
-						"template" : "genericList",
+						"onQuickLaunch" : true,
 						"hidden" : true,
 						"description" : "this is a list", 
 							fields : [	 
-								{"Name":"userId", "Type":"Text", "Required":"true"},								
-								{"Name":"score", "Type":"Number"}, 
+								{"Name":"userId", "Type":"Text", "Required":"true"},
 								{"Name":"scoreFinal", "Type":"Number", "hidden":"true"},
-								{"Name":"assginedTo", "Type":"User", "Required":"true"},
-								{"Name":"dateAssgined", "Type":"DateTime"},								
+								{"Name":"assginedTo", "Type":"User"},
 								{"Name":"state", "Type":"Choice", "choices" : ["rejected", "approved", "passed", "proggress"]},
-								{"Name":"comments", "Type":"Note"},								
-								{"Name":"testLink", "Type":"URL"}
+								{"Name":"comments", "Type":"Note"}
 							]	 
 						})
 					.then( ...... )				
