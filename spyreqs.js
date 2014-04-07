@@ -842,6 +842,11 @@
                     .then(function(){
                         var url = appUrl + "/_api/web/sitegroups/getByName('"+groupName+"')";
                         return getAsync(url);
+                    })
+                    .done(function(groupData){
+                        var group = groupData.d;
+                        var url = appUrl + "/_api/web/roledefinitions/getByName('"+permissionName+"')";
+                        return getAsync(url);
                     });
             }
         },
