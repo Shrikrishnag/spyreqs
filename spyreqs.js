@@ -875,17 +875,36 @@
                 });
 
                 return defer.promise();
-            },
-            givePermissionToGroupToAppList:function(listTitle,permissionName,groupName){
+            },            
+            givePermissionToGroupToAppList: function(listTitle, permissionName, groupName) {
+                var group;
+
                 return this.breakRoleInheritanceOfAppList(listTitle)
-                    .then(function(){
-                        var url = appUrl + "/_api/web/sitegroups/getByName('"+groupName+"')";
+                    .then(function() {
+                        var url = appUrl + "/_api/web/sitegroups/getByName('" + groupName + "')";
                         return getAsync(url);
                     })
-                    .done(function(groupData){
-                        var group = groupData.d;
-                        var url = appUrl + "/_api/web/roledefinitions/getByName('"+permissionName+"')";
+                    .then(function(groupData) {
+                        var url = appUrl + "/_api/web/roledefinitions/getByName('" + permissionName + "')";
+                        group = groupData.d;
                         return getAsync(url);
+                    })
+                    .done(function(permissionData) {
+                        var url = appUrl + "/_api/web/lists/getbytitle('" + listTitle + "')/roleassignments/" +
+                            "addroleassignment(principalid=" + group.Id + ",roledefid=" + permissionData.Id + ")",
+                            defer = new $.Deferred();
+
+                        executor.executeAsync({
+                            url: url,
+                            method: 'POST',
+                            headers: {
+                                Accept: "application/json;odata=verbose"
+                            },
+                            success: defer.resolve,
+                            error: defer.reject
+                        });
+
+                        return defer.promise();
                     });
             }
         },
