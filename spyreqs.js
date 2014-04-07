@@ -804,14 +804,6 @@
             getSiteUsers:function(query){
                 var url = baseUrl + "web/SiteUsers?" + checkQuery(query) + targetStr;
                 return getAsync(url);
-            },
-            getHostNode:function(node){
-                var url = baseUrl + "web/navigation/GetNodeById('"+node+"')?" + targetStr;
-                return getAsync(url);
-            },
-            updateHostNode:function(node,nodeObj){
-                var url = baseUrl + "web/navigation/GetNodeById('"+node+"')?" + targetStr;
-                return updateAsync(url,nodeObj);
             }
         },
         jsom: {
