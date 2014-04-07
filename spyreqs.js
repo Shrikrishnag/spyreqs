@@ -804,6 +804,22 @@
             getSiteUsers:function(query){
                 var url = baseUrl + "web/SiteUsers?" + checkQuery(query) + targetStr;
                 return getAsync(url);
+            },
+            breakRoleInheritanceOfHostList:function(listTitle){
+                var defer = new $.Deferred(),
+                    url = baseUrl + "web/lists/getByTitle('" + listTitle + "')/breakroleinheritance(true)?" + targetStr;
+                
+                executor.executeAsync({
+                    url: url,
+                    method: 'POST',
+                    headers: {
+                        Accept: "application/json;odata=verbose"
+                    },
+                    success: defer.resolve,
+                    error: defer.reject
+                });
+
+                return defer.promise();
             }
         },
         jsom: {
