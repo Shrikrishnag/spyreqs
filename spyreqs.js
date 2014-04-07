@@ -564,6 +564,56 @@
 			}
 
 			return defer.promise();
+		},
+		removeRecentElemByTitle: function(c, elemTitle) {
+			var ql = c.appContextSite.get_web().get_navigation().get_quickLaunch(), defer = new $.Deferred();	  
+			clientContext.load(ql);
+			clientContext.executeQueryAsync(
+				function () {
+					var objEnumerator = ql.getEnumerator(), navItem;
+					while (objEnumerator.moveNext()) {
+						navItem = objEnumerator.get_current();		 
+						if (navItem.get_title() == "Recent") {
+							// found 'Recent' node, get its children
+							var ch = navItem.get_children();
+							clientContext.load(ch);
+							clientContext.executeQueryAsync(		
+								function () {
+									var childsEnum = ch.getEnumerator(), childItem;
+									while (childsEnum.moveNext()) {
+										childItem = childsEnum.get_current();		 
+										if (childItem.get_title() == what) {
+											childItem.deleteObject();
+											clientContext.load(ql);
+											clientContext.executeQueryAsync(
+												success, 
+												fail
+											);
+											break;									
+										}
+									}
+								}, 
+								fail
+							);						
+						}	 
+					} 
+				}, 
+				fail
+			);
+			
+			function success() {
+				var msg = 'element removed from Recent';
+				say(msg);
+				defer.resolve(msg);
+			}
+			function fail(sender, args) {
+				var error = {
+					sender: sender,
+					args: args
+				};
+				defer.reject(error);
+			}
+			return defer.promise();
 		}
     };
 
@@ -912,6 +962,16 @@
                 var c = newRemoteContextInstance();
 				return jsom.updateListItem(c, listTitle, itemObj, itemId);
             },
+			removeHostRecentElemByTitle: function(elemTitle) {
+				// removes element from Host site Recent node, under QuickLaunch node. 
+				var c = newRemoteContextInstance();				
+				return jsom.removeRecentElemByTitle(c, elemTitle);
+			},	
+			removeAppRecentElemByTitle: function(elemTitle) {
+				// removes element from Host site Recent node, under QuickLaunch node. 
+				var c = newLocalContextInstance();				
+				return jsom.removeRecentElemByTitle(c, elemTitle);
+			},				
             createHostList: function (listObj) {
                 /* please put all list attributes and listInformation attributes in listObj. 
 					syntax example:
