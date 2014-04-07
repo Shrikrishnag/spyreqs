@@ -582,7 +582,7 @@
 									var childsEnum = ch.getEnumerator(), childItem;
 									while (childsEnum.moveNext()) {
 										childItem = childsEnum.get_current();		 
-										if (childItem.get_title() == what) {
+										if (childItem.get_title() == elemTitle) {
 											childItem.deleteObject();
 											c.context.load(ql);
 											c.context.executeQueryAsync(
