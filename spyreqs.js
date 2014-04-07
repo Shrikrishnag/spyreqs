@@ -372,18 +372,7 @@
 					"noCrawl", "onQuickLaunch", "validationFormula",
 					"validationMessage", "direction"
 				];
-			/*
-			params for listCreationInformation		 
-				customSchemaXml
-					Gets or sets a value that specifies the list schema of the new list.
-				dataSourceProperties
-					Gets or sets a value that specifies the properties of the data source of the new list.
-				   
-				templateFeatureId
-					Gets or sets a value that specifies the feature identifier of the feature that contains the list schema for the new list.
-								 
-				 			
-			*/
+			
 			web = c.appContextSite.get_web();
 			listCreationInfo = new SP.ListCreationInformation();			
 
