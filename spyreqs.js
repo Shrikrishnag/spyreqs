@@ -823,7 +823,7 @@
             },
             breakRoleInheritanceOfAppList:function(listTitle){
                 var defer = new $.Deferred(),
-                    url = appUrl + "web/lists/getByTitle('" + listTitle + "')/breakroleinheritance(true)?";
+                    url = appUrl + "/_api/web/lists/getByTitle('" + listTitle + "')/breakroleinheritance(true)?";
                 
                 executor.executeAsync({
                     url: url,
