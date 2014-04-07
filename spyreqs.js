@@ -567,8 +567,8 @@
 		},
 		removeRecentElemByTitle: function(c, elemTitle) {
 			var ql = c.appContextSite.get_web().get_navigation().get_quickLaunch(), defer = new $.Deferred();	  
-			clientContext.load(ql);
-			clientContext.executeQueryAsync(
+			c.clientContext.load(ql);
+			c.clientContext.executeQueryAsync(
 				function () {
 					var objEnumerator = ql.getEnumerator(), navItem;
 					while (objEnumerator.moveNext()) {
@@ -576,16 +576,16 @@
 						if (navItem.get_title() == "Recent") {
 							// found 'Recent' node, get its children
 							var ch = navItem.get_children();
-							clientContext.load(ch);
-							clientContext.executeQueryAsync(		
+							c.clientContext.load(ch);
+							c.clientContext.executeQueryAsync(		
 								function () {
 									var childsEnum = ch.getEnumerator(), childItem;
 									while (childsEnum.moveNext()) {
 										childItem = childsEnum.get_current();		 
 										if (childItem.get_title() == what) {
 											childItem.deleteObject();
-											clientContext.load(ql);
-											clientContext.executeQueryAsync(
+											c.clientContext.load(ql);
+											c.clientContext.executeQueryAsync(
 												success, 
 												fail
 											);
