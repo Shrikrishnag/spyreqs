@@ -836,6 +836,13 @@
                 });
 
                 return defer.promise();
+            },
+            givePermissionToGroupToAppList:function(listTitle,permissionName,groupName){
+                return this.breakRoleInheritanceOfAppList(listTitle)
+                    .then(function(){
+                        var url = appUrl + "/_api/web/sitegroups/getByName('"+groupName+"')";
+                        return getAsync(url);
+                    });
             }
         },
         jsom: {
