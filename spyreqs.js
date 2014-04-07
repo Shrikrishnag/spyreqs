@@ -820,6 +820,22 @@
                 });
 
                 return defer.promise();
+            },
+            breakRoleInheritanceOfAppList:function(listTitle){
+                var defer = new $.Deferred(),
+                    url = appUrl + "web/lists/getByTitle('" + listTitle + "')/breakroleinheritance(true)?";
+                
+                executor.executeAsync({
+                    url: url,
+                    method: 'POST',
+                    headers: {
+                        Accept: "application/json;odata=verbose"
+                    },
+                    success: defer.resolve,
+                    error: defer.reject
+                });
+
+                return defer.promise();
             }
         },
         jsom: {
