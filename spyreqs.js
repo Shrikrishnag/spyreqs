@@ -282,12 +282,7 @@
             keys.forEach(function(key) {
                 if (key.indexOf('App') !== -1) {
                     newKey = key.replace('App', 'Web');
-                    //obj[prop][newKey] = obj[prop][key];
-                    obj[prop][newKey] = function(){
-                        //for Use in the ...not App
-                        obj[prop][key]();
-                    };
-
+                    obj[prop][newKey] = obj[prop][key];
                 }
             });
         });
