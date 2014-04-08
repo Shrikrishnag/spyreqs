@@ -376,7 +376,7 @@
 				lciAttrs = [
 					"url", "description", "documentTemplateType",
 					"customSchemaXml", "dataSourceProperties",
-					"quickLaunchOption", "templateFeatureId" 			
+					"quickLaunchOption", "templateFeatureId"		
 				], 
 				listAttrs = [
 					"contentTypesEnabled", "defaultContentApprovalWorkflowId",
@@ -494,8 +494,8 @@
 			web = c.appContextSite.get_web(); 
 			theList = web.get_lists().getByTitle(listTitle); 
 			var camlQuery = new SP.CamlQuery();
-			camlQuery.set_viewXml(query); 		
-			resultCollection = theList.getItems(camlQuery);  
+			camlQuery.set_viewXml(query);
+			resultCollection = theList.getItems(camlQuery);
 			c.context.load(resultCollection);  
 			c.context.executeQueryAsync(success, fail);
 
