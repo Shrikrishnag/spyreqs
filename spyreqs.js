@@ -885,21 +885,31 @@
                 return defer.promise();
             },            
             givePermissionToGroupToAppList: function(listTitle, permissionName, groupName) {
-                var group;
+                var groupId,
+                    permissionId;
 
                 return this.breakRoleInheritanceOfAppList(listTitle)
                     .then(function() {
-                        var url = appUrl + "/_api/web/sitegroups/getByName('" + groupName + "')";
+                        //get the Id of the Group
+                        var url = appUrl + "/_api/web/sitegroups/getByName('" + groupName + "')?$select=Id";
                         return getAsync(url);
                     })
                     .then(function(groupData) {
-                        var url = appUrl + "/_api/web/roledefinitions/getByName('" + permissionName + "')";
-                        group = groupData.d;
+                        //delete roleassignments for this group  
+                        var url;
+                        groupId = groupData.d.Id;
+                        url = appUrl + "/_api/web/lists/getbytitle('" + listTitle + "')/roleassignments/getbyprincipalid('" + groupId + "')";
+                        return deleteAsync(url);                        
+                    })
+                    .then(function() {
+                        //get the id of the new roleAssignment
+                        var url = appUrl + "/_api/web/roledefinitions/getByName('" + permissionName + "')?select=Id";
                         return getAsync(url);
                     })
                     .done(function(permissionData) {
+                        //give to the group in the List Scope the new roleAssignment
                         var url = appUrl + "/_api/web/lists/getbytitle('" + listTitle + "')/roleassignments/" +
-                            "addroleassignment(principalid=" + group.Id + ",roledefid=" + permissionData.d.Id + ")",
+                            "addroleassignment(principalid=" + groupId + ",roledefid=" + permissionData.d.Id + ")",
                             defer = new $.Deferred();
 
                         executor.executeAsync({
