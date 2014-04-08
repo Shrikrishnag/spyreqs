@@ -1027,12 +1027,16 @@
 				var c = newLocalContextInstance();
 				return jsom.getList(c, listTitle);    
 			},
+			deleteHostList: function (listTitle) {
+				var c = newRemoteContextInstance();
+				return jsom.deleteList(c, listTitle);    
+			},
+			deleteAppList: function (listTitle) {
+				var c = newLocalContextInstance();
+				return jsom.deleteList(c, listTitle);    
+			},
 			getAppListPermissions: function (listTitle, userName) {
 				var c = newLocalContextInstance();
-				return jsom.getListPermissions(c, listTitle, userName);    
-			},
-			getHostListPermissions: function (listTitle, userName) {
-				var c = newRemoteContextInstance();
 				return jsom.getListPermissions(c, listTitle, userName);    
 			},
             getHostListItems: function (listTitle, query) {
