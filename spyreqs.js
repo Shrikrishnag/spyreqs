@@ -925,6 +925,10 @@
 
                         return defer.promise();
                     });
+            },
+            getHostListRoleAssigmnent:function(listTitle,userId){
+                var url = baseUrl + "web/lists/getbytitle('" + listTitle + "')/roleassignments/getbyprincipalid('" + userId + "')?"+targetStr;
+                return getAsync(url);
             }
         },
         jsom: {
