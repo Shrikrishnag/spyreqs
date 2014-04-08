@@ -579,10 +579,11 @@
 							c.context.load(ch);
 							c.context.executeQueryAsync(		
 								function () {
-									var childsEnum = ch.getEnumerator(), childItem;
+									var childsEnum = ch.getEnumerator(), childItem, foundBool = false;
 									while (childsEnum.moveNext()) {
 										childItem = childsEnum.get_current();		 
 										if (childItem.get_title() == elemTitle) {
+											foundBool = true;
 											childItem.deleteObject();
 											c.context.load(ql);
 											c.context.executeQueryAsync(
@@ -591,6 +592,13 @@
 											);
 											break;									
 										}
+									}
+									if (!foundBool) {
+										var args = { 
+											get_message : function() { return "Element was not found"; },		
+											get_stackTrace : function() { return null; }	
+										};
+										setTimeout( fail(null,args), 500 );
 									}
 								}, 
 								fail
