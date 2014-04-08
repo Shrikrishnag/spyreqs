@@ -891,7 +891,7 @@
                     })
                     .done(function(permissionData) {
                         var url = appUrl + "/_api/web/lists/getbytitle('" + listTitle + "')/roleassignments/" +
-                            "addroleassignment(principalid=" + group.Id + ",roledefid=" + permissionData.Id + ")",
+                            "addroleassignment(principalid=" + group.Id + ",roledefid=" + permissionData.d.Id + ")",
                             defer = new $.Deferred();
 
                         executor.executeAsync({
