@@ -611,9 +611,9 @@
 			
 			function success() {
 				var msg = 'element removed from Recent';
-				say(msg);
 				defer.resolve(msg);
 			}
+			
 			function fail(sender, args) {
 				var error = {
 					sender: sender,
@@ -621,6 +621,7 @@
 				};
 				defer.reject(error);
 			}
+			
 			return defer.promise();
 		}
     };
