@@ -623,6 +623,53 @@
 			}
 			
 			return defer.promise();
+		},
+		getList: function (c, listTitle) {
+			var web, theList, defer = new $.Deferred();			
+			 
+			web = c.appContextSite.get_web();
+			theList = web.get_lists().getByTitle(listTitle);
+			c.context.load(theList);
+			c.context.executeQueryAsync(success, fail);
+
+			function success() {				 
+				defer.resolve(theList);
+			}
+
+			function fail(sender, args) {
+				var error = {
+					sender: sender,
+					args: args
+				};
+				defer.reject(error);
+			}
+
+			return defer.promise();
+		},
+		deleteList: function (c, listTitle) {
+			var web, theList, defer = new $.Deferred();			
+			 
+			web = c.appContextSite.get_web();
+			theList = web.get_lists().getByTitle(listTitle);
+			theList.deleteObject();
+			c.context.executeQueryAsync(success, fail);
+
+			function success() {				 
+				defer.resolve(listTitle + " deleted");
+			}
+
+			function fail(sender, args) {
+				var error = {
+					sender: sender,
+					args: args
+				};
+				defer.reject(error);
+			}
+
+			return defer.promise();
+		},
+		getUserPermissions: function (c, listTitle, user) {
+			// not ready
 		}
     };
 
@@ -952,6 +999,14 @@
 				// But, send the promise and let disolve there
 				return jsom.checkList(c, listTitle);
             },
+			getHostList: function (listTitle) {
+				var c = newRemoteContextInstance();
+				return jsom.getList(c, listTitle);    
+			},
+			getAppList: function (listTitle) {
+				var c = newLocalContextInstance();
+				return jsom.getList(c, listTitle);    
+			},
             getHostListItems: function (listTitle, query) {
                 /* Example syntax:								
 				spyreqs.jsom.getHostListItems("myClasses","<View><Query><Where><IsNotNull><FieldRef Name='ClassGuid'/></IsNotNull></Where></Query></View>").then(
