@@ -272,6 +272,24 @@
 		} else { say('sp.js is already loaded') }
 	} else if (notAnApp_Flag == 1) { say('query param (SPHostUrl or SPAppWebUrl) is misssing'); }	   
 
+
+    function mirrorAppFunctions(obj, properties) {
+        var keys, newKey;
+
+        properties.forEach(function(prop) {
+            keys = Object.keys(obj[prop]);
+
+            keys.forEach(function(key) {
+                if (key.indexOf('App') !== -1) {
+                    newKey = key.replace('App', 'Web');
+                    obj[prop][newKey] = obj[prop][key];
+                }
+            });
+        });
+
+        return obj;
+    }
+
     /**
      * the rest and jsom objects have methods that are not to be exposed 
 	 * and are used only from the spyreqs.rest / spyreqs.jsom methods
@@ -953,8 +971,7 @@
                 return defer.promise();
             },            
             givePermissionToGroupToAppList: function(listTitle, permissionName, groupName) {
-                var groupId,
-                    permissionId;
+                var groupId;
 
                 return this.breakRoleInheritanceOfAppList(listTitle)
                     .then(function() {
@@ -1180,5 +1197,5 @@
     };
 
     // liberate scope...
-    window.spyreqs = spyreqs;
+    window.spyreqs = mirrorAppFunctions(spyreqs,['rest','jsom','utils']);
 }(window));
