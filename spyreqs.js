@@ -668,8 +668,28 @@
 
 			return defer.promise();
 		},
-		getUserPermissions: function (c, listTitle, user) {
-			// not ready
+		getListPermissions: function (c, listTitle, userName) {
+			var web, theList, userPerms, defer = new $.Deferred();			
+			 
+			web = c.appContextSite.get_web();
+			theList = web.get_lists().getByTitle(listTitle);
+			userPerms = theList.getUserEffectivePermissions(userName);
+			c.context.load(theList, 'EffectiveBasePermissions');
+			c.context.executeQueryAsync(success, fail);
+
+			function success() {				 
+				defer.resolve(userPerms);
+			}
+
+			function fail(sender, args) {
+				var error = {
+					sender: sender,
+					args: args
+				};
+				defer.reject(error);
+			}
+
+			return defer.promise();
 		}
     };
 
@@ -1006,6 +1026,14 @@
 			getAppList: function (listTitle) {
 				var c = newLocalContextInstance();
 				return jsom.getList(c, listTitle);    
+			},
+			getAppListPermissions: function (listTitle, userName) {
+				var c = newLocalContextInstance();
+				return jsom.getListPermissions(c, listTitle, userName);    
+			},
+			getHostListPermissions: function (listTitle, userName) {
+				var c = newRemoteContextInstance();
+				return jsom.getListPermissions(c, listTitle, userName);    
 			},
             getHostListItems: function (listTitle, query) {
                 /* Example syntax:								
