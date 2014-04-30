@@ -2,9 +2,9 @@
     "use strict";
     var appUrl, hostUrl, queryParams,
         executor, baseUrl, targetStr,
-		notAnApp_Flag = 0, 
+		notAnApp_FlagSum = 0, 
 		say, rest, jsom, 
-        spyreqs, spyreqs_version = "0.0.7";
+        spyreqs, spyreqs_version = "0.0.8";
 
     if (typeof window.console !== 'undefined') {
         say = function (what) { window.console.log(what); };
@@ -240,7 +240,7 @@
     if (typeof queryParams.SPAppWebUrl !== 'undefined') {
 		appUrl = decodeURIComponent(queryParams.SPAppWebUrl);
 		if (appUrl.indexOf('#') !== -1) { appUrl = appUrl.split('#')[0]; }		
-	} else { notAnApp_Flag ++; }
+	} else { notAnApp_FlagSum ++; }
 	
     if (typeof queryParams.SPHostUrl !== 'undefined') {
 		hostUrl = decodeURIComponent(queryParams.SPHostUrl);
@@ -248,9 +248,9 @@
 		targetStr = "&@target='" + hostUrl + "'";
 		baseUrl = appUrl + "/_api/SP.AppContextSite(@target)/";
 		executor = new SP.RequestExecutor(appUrl); 
-	} else { notAnApp_Flag ++; }
+	} else { notAnApp_FlagSum ++; }
 	
-	if (notAnApp_Flag == 2) {
+	if (notAnApp_FlagSum == 2) {
 		// this is not an app, so assing the proper web url to both vars
 		// Caution, always use 'App' relative functions when NOT in app
 		var url = window.location.href;
@@ -270,7 +270,7 @@
 				function(){ say('loaded: sp.js'); }
 			);
 		} else { say('sp.js is already loaded') }
-	} else if (notAnApp_Flag == 1) { say('query param (SPHostUrl or SPAppWebUrl) is misssing'); }	   
+	} else if (notAnApp_FlagSum == 1) { say('query param (SPHostUrl or SPAppWebUrl) is misssing'); }	   
 
 
     function mirrorAppFunctions(obj, properties) {
@@ -583,64 +583,68 @@
 
 			return defer.promise();
 		},
-		removeRecentElemByTitle: function(c, elemTitle) {
-			var ql = c.appContextSite.get_web().get_navigation().get_quickLaunch(), defer = new $.Deferred();	  
-			c.context.load(ql);
-			c.context.executeQueryAsync(
-				function () {
-					var objEnumerator = ql.getEnumerator(), navItem;
-					while (objEnumerator.moveNext()) {
-						navItem = objEnumerator.get_current();		 
-						if (navItem.get_title() == "Recent") {
-							// found 'Recent' node, get its children
-							var ch = navItem.get_children();
-							c.context.load(ch);
-							c.context.executeQueryAsync(		
-								function () {
-									var childsEnum = ch.getEnumerator(), childItem, foundBool = false;
-									while (childsEnum.moveNext()) {
-										childItem = childsEnum.get_current();		 
-										if (childItem.get_title() == elemTitle) {
-											foundBool = true;
-											childItem.deleteObject();
-											c.context.load(ql);
-											c.context.executeQueryAsync(
-												success, 
-												fail
-											);
-											break;									
-										}
-									}
-									if (!foundBool) {
-										var args = { 
-											get_message : function() { return "Element was not found"; },		
-											get_stackTrace : function() { return null; }	
-										};
-										setTimeout( fail(null,args), 500 );
-									}
-								}, 
-								fail
-							);						
-						}	 
-					} 
-				}, 
-				fail
-			);
+		removeRecentElemByTitle: function (c, elemTitle) {
+
+		    function success() {
+		        var msg = 'element removed from Recent: ' + elemTitle;
+		        defer.resolve(msg);
+		    }
+
+		    function fail(sender, args) {
+		        var error = {
+		            sender: sender,
+		            args: args
+		        };
+		        defer.reject(error);
+		    }
+
+		    try {
+		        var ql = c.appContextSite.get_web().get_navigation().get_quickLaunch(), defer = new $.Deferred();	  
+		        c.context.load(ql);
+		        c.context.executeQueryAsync(
+                    function () {
+                        var objEnumerator = ql.getEnumerator(), navItem;
+                        while (objEnumerator.moveNext()) {
+                            navItem = objEnumerator.get_current();		 
+                            if (navItem.get_title() == "Recent") {
+                                // found 'Recent' node, get its children
+                                var ch = navItem.get_children();
+                                c.context.load(ch);
+                                c.context.executeQueryAsync(		
+                                    function () {
+                                        var childsEnum = ch.getEnumerator(), childItem, foundBool = false;
+                                        while (childsEnum.moveNext()) {
+                                            childItem = childsEnum.get_current();		 
+                                            if (childItem.get_title() == elemTitle) {
+                                                foundBool = true;
+                                                childItem.deleteObject();
+                                                c.context.load(ql);
+                                                c.context.executeQueryAsync(
+                                                    success, 
+                                                    fail
+                                                );
+                                                break;									
+                                            }
+                                        }
+                                        if (!foundBool) {
+                                            say("Recent Element not found: " + elemTitle);
+                                            var args = { 
+                                                get_message : function() { return "Element was not found"; },		
+                                                get_stackTrace : function() { return null; }	
+                                            };
+                                            setTimeout( fail(null,args), 500 );
+                                        }
+                                    }, 
+                                    fail
+                                );						
+                            }	 
+                        } 
+                    }, 
+                    fail
+                );		        
 			
-			function success() {
-				var msg = 'element removed from Recent';
-				defer.resolve(msg);
-			}
-			
-			function fail(sender, args) {
-				var error = {
-					sender: sender,
-					args: args
-				};
-				defer.reject(error);
-			}
-			
-			return defer.promise();
+		        return defer.promise();
+		    } catch (e) { say(e.message); return false;}
 		},
 		getList: function (c, listTitle) {
 			var web, theList, defer = new $.Deferred();			
@@ -1197,5 +1201,9 @@
     };
 
     // liberate scope...
-    window.spyreqs = mirrorAppFunctions(spyreqs,['rest','jsom','utils']);
+    if (notAnApp_FlagSum != 2) {
+        window.spyreqs = mirrorAppFunctions(spyreqs, ['rest', 'jsom', 'utils']);
+    } else {
+        window.spyreqs = spyreqs;
+    }
 }(window));
