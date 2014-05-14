@@ -4,7 +4,7 @@
         executor, baseUrl, targetStr,
 		notAnApp_FlagSum = 0, 
 		say, rest, jsom, 
-        spyreqs, spyreqs_version = "0.0.8";
+        spyreqs, spyreqs_version = "0.0.9";
 
     if (typeof window.console !== 'undefined') {
         say = function (what) { window.console.log(what); };
@@ -538,6 +538,27 @@
 
 			return defer.promise();
 		},
+		recycleListItem: function (c, listTitle, itemId) {
+		    var web, theList, theListItem, defer = new $.Deferred();
+		 
+		    web = c.appContextSite.get_web();
+		    theList = web.get_lists().getByTitle(listTitle);			 
+			
+		    theListItem = theList.getItemById(itemId);		    
+		    theListItem.recycle();
+		    c.context.executeQueryAsync(success, fail);
+
+		    function success() {
+		        defer.resolve(itemId);
+		    }
+
+		    function fail(sender, args) {
+		        var error = { sender: sender, args: args };
+		        defer.reject(error);
+		    }
+
+		    return defer.promise();
+		},
 		checkList: function (c, listTitle) {
 			var web, collectionList, defer = new $.Deferred();
 			
@@ -689,6 +710,28 @@
 			}
 
 			return defer.promise();
+		},
+		recycleList: function (c, listTitle) {
+		    var web, theList, defer = new $.Deferred();			
+			 
+		    web = c.appContextSite.get_web();
+		    theList = web.get_lists().getByTitle(listTitle);
+		    theList.recycle();
+		    c.context.executeQueryAsync(success, fail);
+
+		    function success() {				 
+		        defer.resolve(listTitle + " recycled");
+		    }
+
+		    function fail(sender, args) {
+		        var error = {
+		            sender: sender,
+		            args: args
+		        };
+		        defer.reject(error);
+		    }
+
+		    return defer.promise();
 		},
 		getListPermissions: function (c, listTitle, userName) {
 			var web, theList, userPerms, defer = new $.Deferred();			
@@ -1056,6 +1099,14 @@
 				var c = newLocalContextInstance();
 				return jsom.deleteList(c, listTitle);    
 			},
+			recycleHostList: function (listTitle) {
+			    var c = newRemoteContextInstance();
+			    return jsom.recycleList(c, listTitle);
+			},
+			recycleAppList: function (listTitle) {
+			    var c = newLocalContextInstance();
+			    return jsom.recycleList(c, listTitle);
+			},
 			getAppListPermissions: function (listTitle, userName) {
 				var c = newLocalContextInstance();
 				return jsom.getListPermissions(c, listTitle, userName);    
@@ -1111,7 +1162,17 @@
                 /* syntax example: see updateAppListItem example */            
                 var c = newRemoteContextInstance();
 				return jsom.updateListItem(c, listTitle, itemObj, itemId);
-            },
+			},
+			recycleHostListItem: function (listTitle, itemId) {
+			    /* syntax example: see updateAppListItem example */            
+			    var c = newRemoteContextInstance();
+			    return jsom.recycleListItem(c, listTitle, itemId);
+			},
+			recycleAppListItem: function (listTitle, itemId) {
+			    /* syntax example: see updateAppListItem example */            
+			    var c = newRemoteContextInstance();
+			    return jsom.recycleListItem(c, listTitle, itemId);
+			},
 			removeHostRecentElemByTitle: function(elemTitle) {
 				// removes element from Host site Recent node, under QuickLaunch node. 
 				var c = newRemoteContextInstance();				
