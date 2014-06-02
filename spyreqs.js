@@ -4,15 +4,128 @@
         executor, baseUrl, targetStr,
 		notAnApp_FlagSum = 0, 
 		say, rest, jsom, 
-        spyreqs, spyreqs_version = "0.0.10";
+        spyreqs, spyreqs_version = "0.0.14";
 
-    if (typeof window.console !== 'undefined') {
-        say = function (what) { window.console.log(what); };
-    } else if ((typeof window.top !== 'undefined') && (typeof window.top.console !== 'undefined')) {
-        say = function (what) { window.top.console.log(what); };
-    } else if ((typeof window.opener !== 'undefined') && (typeof window.opener.console !== 'undefined')) {
-        say = function (what) { window.opener.console.log(what); };
-    } else { say = function () { }; }
+    initSay();
+    initSpyreqs();
+
+    function initSay() {
+        // init 'say' fn
+        if (typeof window.console !== 'undefined') {
+            say = function (what) { window.console.log(what); };
+        } else if ((typeof window.top !== 'undefined') && (typeof window.top.console !== 'undefined')) {
+            say = function (what) { window.top.console.log(what); };
+        } else if ((typeof window.opener !== 'undefined') && (typeof window.opener.console !== 'undefined')) {
+            say = function (what) { window.opener.console.log(what); };
+        } else { say = function () { }; }
+    }
+    
+    function initSpyreqs() {
+        // init spyreqs, check if it runs for a Sharepoint App or a solution
+        queryParams = urlParamsObj();
+        if (typeof queryParams.SPAppWebUrl !== 'undefined') {
+            appUrl = decodeURIComponent(queryParams.SPAppWebUrl);
+            if (appUrl.indexOf('#') !== -1) { appUrl = appUrl.split('#')[0]; }
+        } else { notAnApp_FlagSum++; }
+
+        if (typeof queryParams.SPHostUrl !== 'undefined') {
+            hostUrl = decodeURIComponent(queryParams.SPHostUrl);
+            // for rest use
+            targetStr = "&@target='" + hostUrl + "'";
+            baseUrl = appUrl + "/_api/SP.AppContextSite(@target)/";
+            executor = new SP.RequestExecutor(appUrl);
+        } else { notAnApp_FlagSum++; }
+
+        if (notAnApp_FlagSum != 0) {
+            // spyreqs did not find SPHostUrl or SPAppWebUrl or neither in url query params
+            // will try to discover on its own in case we are still running in an app
+            if (discoverIfApp(window.location.host)) {
+                // spyreqs assumes it runs in an app without the proper params, now tries to build app&host Url                
+                appUrl = decodeURIComponent(tryBuildAppUrl());
+                hostUrl = decodeURIComponent(tryBuildHostUrlFromAppUrl(appUrl));
+                targetStr = "&@target='" + hostUrl + "'";
+                baseUrl = appUrl + "/_api/SP.AppContextSite(@target)/";
+                executor = new SP.RequestExecutor(appUrl);
+                say("spyreqs init mode: app-auto");
+                say("spyreqs assumed: appUrl: " + appUrl + " - hostUrl:" + hostUrl);
+            } else { iAmNotInApp(); }
+        } else { say("spyreqs init mode: app"); }
+
+        function tryBuildHostUrlFromAppUrl(appUrl) {
+            // remove app website
+            var temphostUrl = removeLastSlash(appUrl);
+            // remove the hash
+            var domain = window.location.host.split('.')[0],
+                parts = domain.split('-'),
+                hash = parts[parts.length - 1];
+            return temphostUrl.replace("-"+hash, "");
+        }
+
+        function tryBuildAppUrl() {
+            // remove file name (usually default.aspx)
+            appUrl = window.location.origin + removeLastSlash(window.location.pathname);
+            if (appUrl.toLowerCase().substring(appUrl.length - "/Pages".length) == "/pages") {
+                // remove that too
+                appUrl = appUrl.slice(0, appUrl.lastIndexOf("/"));
+            }
+            return appUrl;
+        }
+
+        function removeLastSlash(url) {
+            return url.slice(0, url.lastIndexOf("/"));
+        }
+
+        function iAmNotInApp() {
+            // this is not an app, so assing the proper web url to both vars
+            // to do... spyreqs is not ready yet since it has to load some js, but may be called and cause exception
+            // spyreqs thinks this is not a sharepoint app, since url params 'SPHostUrl' or 'SPAppWebUrl' or both are missing
+            say("spyreqs init mode: no-app");
+            var url = window.location.href;
+            appUrl = hostUrl = url.substring(0, url.indexOf('/Pages'));
+            // load SP.RequestExecutor to let REST work on host site api
+            $.getScript(hostUrl + "/_layouts/15/SP.RequestExecutor.js")
+            .done(function (script, textStatus) {
+                say('loaded: RequestExecutor.js');
+                executor = new SP.RequestExecutor(hostUrl);
+                targetStr = "&@target='" + hostUrl + "'";
+                baseUrl = appUrl + "/_api/SP.AppContextSite(@target)/";
+            })
+            .fail(function (script, textStatus) {
+                say('could not load: RequestExecutor.js');
+            });
+            // load sp.js for jsom use if not already loadad
+            say("spyreqs is trying to load sp.js");
+            if (!SP.ClientContext) {
+                SP.SOD.executeFunc('sp.js', 'SP.ClientContext.get_current',
+                    function () { say('loaded: sp.js'); }
+                );
+            } else { say('sp.js is already loaded') }
+        }
+
+        function discoverIfApp(theurl) {
+            // check length of the hash... and pray!
+            var domain = theurl.split('.')[0],
+                parts = domain.split('-'),
+                hash = parts[parts.length - 1];
+            return (hash.length == 14);
+        }
+    }
+
+    function postAsync(url) {
+        var defer = new $.Deferred();
+
+        executor.executeAsync({
+            url: url,
+            method: 'POST',
+            headers: {
+                Accept: "application/json;odata=verbose"
+            },
+            success: defer.resolve,
+            error: defer.reject
+        }); 
+
+        return defer.promise();
+    }
 
     function getAsync(url) {
         var defer = new $.Deferred();
@@ -157,13 +270,13 @@
         });
         return defer.promise();
     }
-
-    /**
-     * checks if the query argument is a string and if it is not returns an empty string
-     * @param  {string} query [the query to execute]
-     * @return {string}       [the input query or an empty string]
-     */
+       
     function checkQuery(query) {
+        /**
+    * checks if the query argument is a string and if it is not returns an empty string
+    * @param  {string} query [the query to execute]
+    * @return {string}       [the input query or an empty string]
+    */
         if (typeof query === 'undefined' || (typeof query !== 'string' && !(query instanceof String))) {
             return '';
         }
@@ -235,44 +348,7 @@
             return String(str.substr(0, ind) + attached);
         } return String(str + "?" + param + "=" + val);
     }
-
-    queryParams = urlParamsObj();	
-    if (typeof queryParams.SPAppWebUrl !== 'undefined') {
-		appUrl = decodeURIComponent(queryParams.SPAppWebUrl);
-		if (appUrl.indexOf('#') !== -1) { appUrl = appUrl.split('#')[0]; }		
-	} else { notAnApp_FlagSum ++; }
-	
-    if (typeof queryParams.SPHostUrl !== 'undefined') {
-		hostUrl = decodeURIComponent(queryParams.SPHostUrl);
-		// for rest use
-		targetStr = "&@target='" + hostUrl + "'";
-		baseUrl = appUrl + "/_api/SP.AppContextSite(@target)/";
-		executor = new SP.RequestExecutor(appUrl); 
-	} else { notAnApp_FlagSum ++; }
-	
-	if (notAnApp_FlagSum == 2) {
-		// this is not an app, so assing the proper web url to both vars
-		// Caution, always use 'App' relative functions when NOT in app
-		var url = window.location.href;
-		appUrl = hostUrl = url.substring(0,url.indexOf('/Pages'));
-		// load SP.RequestExecutor to let REST work on host site api
-		$.getScript(hostUrl + "/_layouts/15/SP.RequestExecutor.js")
-		.done(function( script, textStatus ) {
-			say('loaded: RequestExecutor.js');
-			executor = new SP.RequestExecutor(hostUrl); 
-		})
-		.fail(function( script, textStatus ) {
-			say('could not load: RequestExecutor.js');
-		});		
-		// load sp.js for jsom use if not already loadad
-		if (!SP.ClientContext) { 
-			SP.SOD.executeFunc('sp.js', 'SP.ClientContext.get_current', 
-				function(){ say('loaded: sp.js'); }
-			);
-		} else { say('sp.js is already loaded') }
-	} else if (notAnApp_FlagSum == 1) { say('query param (SPHostUrl or SPAppWebUrl) is misssing'); }	   
-
-
+    
     function mirrorAppFunctions(obj, properties) {
         var keys, newKey;
 
@@ -291,8 +367,8 @@
     }
 
     /**
-     * the rest and jsom objects have methods that are not to be exposed 
-	 * and are used only from the spyreqs.rest / spyreqs.jsom methods
+     * the rest and jsom objects have methods that are мот exposed 
+	 * and are used only by the spyreqs.rest / spyreqs.jsom methods
      */
     rest = {
         createList: function (url, list) {
@@ -595,10 +671,7 @@
 			}
 
 			function fail(sender, args) {
-				var error = {
-					sender: sender,
-					args: args
-				};
+				var error = { sender: sender, args: args 	};
 				defer.reject(error);
 			}
 
@@ -857,7 +930,7 @@
             c.context.executeQueryAsync(success, fail);
 
             function success() {
-                var listInfo = '', answerBool, listEnumerator = collectionList.getEnumerator();
+                var listInfo = '', answerBool=-1, listEnumerator = collectionList.getEnumerator();
 
                 while (listEnumerator.moveNext()) {
                     var oList = listEnumerator.get_current();
@@ -866,7 +939,66 @@
                         break;
                     }
                 }
-                defer.resolve(answerBool);
+
+                if (answerBool == -1) {
+                    var args = {
+                        get_message: function () { return "List was not found: " + elemTitle; },
+                        get_stackTrace: function () { return null; }
+                    };
+                    fail(null, args);
+                }
+                else {
+                    defer.resolve(answerBool);
+                }
+            }
+
+            function fail(sender, args) {
+                var error = {
+                    sender: sender,
+                    args: args
+                };
+                defer.reject(error);
+            }
+
+            return defer.promise();
+        },
+        getWebProperty: function (c, propName) {
+            var web, properties, val, defer = new $.Deferred();
+
+            web = c.appContextSite.get_web();
+            properties = web.get_allProperties();
+            web.update();
+            c.context.load(web);
+            c.context.load(properties);
+            c.context.executeQueryAsync(success, fail);
+
+            function success() {
+                var val = properties.get_fieldValues()[propName];
+                defer.resolve(val);
+            }
+
+            function fail(sender, args) {
+                var error = {
+                    sender: sender,
+                    args: args
+                };
+                defer.reject(error);
+            }
+
+            return defer.promise();
+        },
+        setWebProperty: function (c, propName, val) {
+            var web, properties, defer = new $.Deferred();
+
+            web = c.appContextSite.get_web();
+            properties = web.get_allProperties();
+            properties.set_item(propName, val);
+            web.update();
+            c.context.load(web);
+            c.context.executeQueryAsync(success, fail);
+
+            function success(obj) {
+                defer.resolve(obj);
             }
 
             function fail(sender, args) {
@@ -888,7 +1020,7 @@
              * @param  {string} query [the query to execute example:"$filter=..."]
              * example of using the function
              * spyreqs.rest.getHostLists("$select=...").then(function(data){//doSomething with the data},function(error){//handle the error});
-             */
+             */           
             getHostLists: function (query) {
                 var url = baseUrl + "web/lists?" + checkQuery(query) + targetStr;
                 return getAsync(url);
@@ -934,7 +1066,6 @@
             },
             getAppListFields: function (listTitle, query) {
                 var url = appUrl + "/_api/web/lists/getByTitle('" + listTitle + "')/Fields?" + checkQuery(query);
-
                 return getAsync(url);
             },           
             createHostList: function (list) {
@@ -1108,69 +1239,25 @@
                 var url = baseUrl + "web/SiteUsers?" + checkQuery(query) + targetStr;
                 return getAsync(url);
             },
-            breakRoleInheritanceOfHostList: function (listTitle, copyRolesBool) {
-                var defer = new $.Deferred(),
-                    url = baseUrl + "web/lists/getByTitle('" + listTitle + "')/breakroleinheritance("+copyRolesBool+")?" + targetStr;
-                
-                executor.executeAsync({
-                    url: url,
-                    method: 'POST',
-                    headers: {
-                        Accept: "application/json;odata=verbose"
-                    },
-                    success: defer.resolve,
-                    error: defer.reject
-                });
-
-                return defer.promise();
+            breakRoleInheritanceOfHostList: function (listTitle, copyRolesStr, clearSubScopeStr) {
+                var defer = new $.Deferred(), copyRolesStr = copyRolesStr || "true", clearSubScopeStr = clearSubScopeStr || "false",
+                    url = baseUrl + "web/lists/getByTitle('" + listTitle + "')/breakroleinheritance(copyRoleAssignments =" + copyRolesStr + ",clearSubscopes =" + clearSubScopeStr + ")?" + targetStr;
+                return postAsync(url);
             },
-            breakRoleInheritanceOfAppList: function (listTitle, copyRolesBool) {
-                var defer = new $.Deferred(),
-                    url = appUrl + "/_api/web/lists/getByTitle('" + listTitle + "')/breakroleinheritance("+copyRolesBool+")?";
-                
-                executor.executeAsync({
-                    url: url,
-                    method: 'POST',
-                    headers: {
-                        Accept: "application/json;odata=verbose"
-                    },
-                    success: defer.resolve,
-                    error: defer.reject
-                });
-
-                return defer.promise();
+            breakRoleInheritanceOfAppList: function (listTitle, copyRolesStr, clearSubScopeStr) {                
+                var defer = new $.Deferred(), copyRolesStr = copyRolesStr || "true", clearSubScopeStr = clearSubScopeStr || "false",
+                    url = appUrl + "/_api/web/lists/getByTitle('" + listTitle + "')/breakroleinheritance(copyRoleAssignments =" + copyRolesStr + ",clearSubscopes =" + clearSubScopeStr + ")?";
+                return postAsync(url);
             },
             resetRoleInheritanceOfAppList: function (listTitle) {
                 var defer = new $.Deferred(),
-                    url = appUrl + "/_api/web/lists/getByTitle('" + listTitle + "')/resetroleinheritance?";
-                
-                executor.executeAsync({
-                    url: url,
-                    method: 'POST',
-                    headers: {
-                        Accept: "application/json;odata=verbose"
-                    },
-                    success: defer.resolve,
-                    error: defer.reject
-                });
-
-                return defer.promise();
+                    url = appUrl + "/_api/web/lists/getByTitle('" + listTitle + "')/resetroleinheritance?";                
+                return postAsync(url);
             },
             resetRoleInheritanceOfHostList: function (listTitle) {
                 var defer = new $.Deferred(),
-                    url = baseUrl + "web/lists/getByTitle('" + listTitle + "')/resetroleinheritance?" + targetStr;
-                
-                executor.executeAsync({
-                    url: url,
-                    method: 'POST',
-                    headers: {
-                        Accept: "application/json;odata=verbose"
-                    },
-                    success: defer.resolve,
-                    error: defer.reject
-                });
-
-                return defer.promise();
+                    url = baseUrl + "web/lists/getByTitle('" + listTitle + "')/resetroleinheritance?" + targetStr;                
+                return postAsync(url);
             },
             givePermissionToGroupToAppList: function(listTitle, permissionName, groupName) {
                 var groupId;
@@ -1216,7 +1303,29 @@
                 // only works with full control on host web
                 var url = baseUrl + "web/lists/getbytitle('" + listTitle + "')/roleassignments/getbyprincipalid('" + userId + "')?"+targetStr;
                 return getAsync(url);
-            }
+            },
+            breakRoleInheritanceOfHostWeb: function (copyRolesStr, clearSubScopeStr) {
+                var defer = new $.Deferred(), copyRolesStr = copyRolesStr || "true", clearSubScopeStr = clearSubScopeStr || "false",
+                    url = baseUrl + "web/breakroleinheritance(copyRoleAssignments =" + copyRolesStr + ",clearSubscopes =" + clearSubScopeStr + ")?" + targetStr;
+                return postAsync(url);
+            },
+            breakRoleInheritanceOfAppWeb: function (copyRolesStr, clearSubScopeStr) {
+                var defer = new $.Deferred(), copyRolesStr = copyRolesStr || "true", clearSubScopeStr = clearSubScopeStr || "false",
+                    url = appUrl + "/_api/web/breakroleinheritance(copyRoleAssignments =" + copyRolesStr + ",clearSubscopes =" + clearSubScopeStr + ")?";
+                return postAsync(url);
+            }, 
+            resetRoleInheritanceOfHostWeb: function () {
+                var defer = new $.Deferred(),
+                    url = baseUrl + "web/resetroleinheritance?" + targetStr;
+                return postAsync(url);
+            },
+            resetRoleInheritanceOfAppWeb: function () {
+                var defer = new $.Deferred(),
+                    url = appUrl + "/_api/web/resetroleinheritance?";
+                return postAsync(url);
+            },
+            postAsync: postAsync,
+            getAsync: getAsync
         },
         jsom: {
             checkHostList: function (listTitle) {
@@ -1429,17 +1538,33 @@
                 c.loader = c.context;
                 return c;
             },
+            getHostProperty: function (propName) {
+                var c = newRemoteContextInstance();
+                return jsom.getWebProperty(c, propName);
+            },
+            getAppProperty: function (propName) {
+                var c = newLocalContextInstance();
+                return jsom.getWebProperty(c, propName);
+            },
+            setHostProperty: function (propName, val) {
+                var c = newRemoteContextInstance();
+                return jsom.setWebProperty(c, propName, val);
+            },
+            setAppProperty: function (propName, val) {
+                var c = newLocalContextInstance();
+                return jsom.setWebProperty(c, propName, val);
+            }
         },
         utils: {
             urlParamsObj: urlParamsObj,
             buildQueryString : buildQueryString,
-            say: say,
-			/**
+            say: say,			
+            getRegionalSettings: function (query) {
+                /**
              * gets the Site's Regional Settings like DateFormat,DateSeparator,LocaleId...
              * @param  {string} query [optional query]
 			 * example: getRegionalSettings("$select=DateSeperator,LocaleId");			 
              */
-            getRegionalSettings: function(query) {
                 var url = baseUrl + "/web/RegionalSettings?" + checkQuery(query) + targetStr;
                 return getAsync(url);
             },
@@ -1454,7 +1579,8 @@
     };
 
     // liberate scope...
-    if (notAnApp_FlagSum != 2) {
+    if (notAnApp_FlagSum == 2) {
+        // spyreqs is not loaded from an app
         window.spyreqs = mirrorAppFunctions(spyreqs, ['rest', 'jsom', 'utils']);
     } else {
         window.spyreqs = spyreqs;

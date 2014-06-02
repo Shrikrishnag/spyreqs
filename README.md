@@ -6,6 +6,69 @@ InEdu SPyReqs.js
 Spyreqs is a library that contains general purpose methods useful for interacting with<br>
 the sharepoint lists and files.It is dependent on the jQuery.
 
+<h3>Welcome!</h3>
+With spyreqs, you can manage:
+
+<ul>
+<li>Web, (Host/App web)</li>
+<li>Lists,</li>
+<li>List items,</li>
+<li>Inheritance,</li>
+<li>Users,</li>
+<li>Permissions,</li>
+<li>'Recent' elements node,</li> 
+<li>Recycle Bin</li>
+<li>Files</li>
+</ul>
+
+<h3>Methods dictionary</h3>
+
+
+rest.<br/>
+	getHostLists, getAppLists  <br/>
+	getHostListByTitle, getAppListByTitle   <br/>
+	getHostListItems, getAppListItems  <br/>
+	getHostListFields, getAppListFields  <br/>
+	createHostList, createAppList  <br/>
+	addHostListItem, addAppListItem  <br/>
+	deleteHostListItem, deleteAppListItem  <br/>
+	updateHostListItem, updateAppListItem <br/>
+	updateHostListField, updateAppListField  <br/>
+	addHostListField, addAppListField <br/>
+	breakRoleInheritanceOfHostList, breakRoleInheritanceOfAppList	<br/>
+	resetRoleInheritanceOfHostList, resetRoleInheritanceOfAppList<br/>
+	breakRoleInheritanceOfHostWeb, breakRoleInheritanceOfAppWeb	<br/>
+	resetRoleInheritanceOfHostWeb, resetRoleInheritanceOfAppWeb<br/>
+	addHostFile, addAppFile <br/>
+	getHostFolderFiles <br/>
+	getHostFolderFolders <br/>
+	addHostFolder 	 <br/>
+	getHostListItemAttachments, addHostListItemAttachment <br/>
+	getSiteUsers, getCurrentUser<br/>
+	updateHostList     <br/>
+	givePermissionToGroupToAppList <br/>
+	getHostListRoleAssigmnent <br/>
+	postAsynq, getAsynq<br/>
+	<br/>
+jsom.<br/>
+	checkHostList, checkAppList  <br/>
+	getHostList, getAppList  <br/>
+	deleteHostList, deleteAppList <br/>
+	recycleHostList, recycleAppList<br/>
+	recycleHostListItem, recycleAppListItem<br/>
+	getHostListItems, getAppListItems  <br/>
+	addHostListItem, addAppListItem  <br/>
+	updateAppListItem, updateHostListItem <br/>
+	removeHostRecentElemByTitle, removeAppRecentElemByTitle <br/>
+	createHostList, createAppList	 <br/>
+	getAppListPermissions <br/>
+	getHostListItemHasUniquePerms, getAppListItemHasUniquePerms<br/>
+	getAllHostListsHasUniquePerms, getAllAppListsHasUniquePerms<br/>
+	getHostProperty, getAppProperty<br/>
+	setHostProperty, setAppProperty<br/>
+	
+
+
 The spyreqs library exposes to the window the spyreqs object which has three properties:<br>
 
 <ul>
