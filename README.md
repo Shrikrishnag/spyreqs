@@ -3,8 +3,7 @@ InEdu SPyReqs.js
 
 (<b>S</b>hare<b>P</b>oint-<b>Y</b> not use this lib for<b>REQ</b>uest<b>S</b>!)
 
-Spyreqs is a library that contains general purpose methods useful for interacting with<br>
-the sharepoint lists and files.It is dependent on the jQuery.
+Spyreqs is a library that contains general purpose methods useful for interacting with the sharepoint lists and files. It is dependent on the jQuery. It will work with a Sharepoint auto-hosted app even without the hostUrl & appUrl URLquery properties!
 
 <h3>Welcome!</h3>
 With spyreqs, you can manage:
@@ -21,10 +20,21 @@ With spyreqs, you can manage:
 <li>Files</li>
 </ul>
 
+<h3>A few words</h3>
+The spyreqs library exposes to the window the spyreqs object which has three properties:<br>
+
+<ul>
+<li>The rest property which is an object that contains rest methods</li>
+<li>The jsom property which is an object that contains jsom methods</li>
+<li>3The utils property which is an object that contains general purpose methods</li>
+</ul>
+<br>
+
+Both spyreqs.rest and spyreqs.jsom contains methods that refers either to the Application scope or to the Host Site scope. If the method is for use in the App scope then it contains 'App' in its name otherwise it contains 'Host'. Because description, parameters and results of both app methods and host methods are identical for each case there will be documentation for one of them. All spyreqs.rest and spyreqs.jsom methods return jQuery promises which are compatible with Q promises library and the subset of Q contained in Angular Framework.<br/>
+
 <h3>Methods dictionary</h3>
 
-
-rest.<br/>
+<b>rest.</b><br/>
 	getHostLists, getAppLists  <br/>
 	getHostListByTitle, getAppListByTitle   <br/>
 	getHostListItems, getAppListItems  <br/>
@@ -50,7 +60,7 @@ rest.<br/>
 	getHostListRoleAssigmnent <br/>
 	postAsynq, getAsynq<br/>
 	<br/>
-jsom.<br/>
+<b>jsom.</b><br/>
 	checkHostList, checkAppList  <br/>
 	getHostList, getAppList  <br/>
 	deleteHostList, deleteAppList <br/>
@@ -68,24 +78,7 @@ jsom.<br/>
 	setHostProperty, setAppProperty<br/>
 	
 
-
-The spyreqs library exposes to the window the spyreqs object which has three properties:<br>
-
-<ul>
-<li>1.The rest property which is an object that contains rest methods</li>
-<li>2.The jsom property which is an object that contains jsom methods</li>
-<li>3.The utils property which is an object that contains general purpose methods</li>
-</ul>
-<br>
-
-Both spyreqs.rest and spyreqs.jsom contains methods that refers either to the <br>
-Application scope or to the Host Site scope. If the method is for use in the App scope <br>
-then it contains 'App' in its name otherwise it contains 'Host'. Because description, parameters and <br>
-results of both app methods and host methods are identical for each case there will be <br>
-documentation for one of them. All spyreqs.rest and spyreqs.jsom methods return jQuery promises <br>
-which are compatible with Q promises library and the subset of Q contained in Angular Framework.
-
-<h2>spyreqs.rest methods</h2>
+<h1>spyreqs.rest methods</h1>
 For all the Rest methods the query argument is optional and compliant with the OData query operators.
 <br>
 You can use $filter,$select and so on.
@@ -398,7 +391,7 @@ spyreqs.rest.getSiteUsers(fileUrl).then(function(data){
 });
 ```
 
-<h2>spyreqs.jsom methods</h2>
+<h1>spyreqs.jsom methods</h1>
 
 <h3>spyreqs.jsom.checkHostList</h3>
 **description:** checks wether a Host list exists or not. <br>
