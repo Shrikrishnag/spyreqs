@@ -4,7 +4,7 @@
         executor, baseUrl, targetStr,
 		notAnApp_FlagSum = 0, 
 		say, rest, jsom, 
-        spyreqs, spyreqs_version = "0.0.14";
+        spyreqs, spyreqs_version = "0.0.17";
 
     initSay();
     initSpyreqs();
@@ -63,6 +63,10 @@
 
         function tryBuildAppUrl() {
             // remove file name (usually default.aspx)
+            if (!window.location.origin) {
+                // fix IE bug of not define origin
+                window.location.origin = window.location.protocol + "//" + window.location.hostname + (window.location.port ? ':' + window.location.port : '');
+            }
             appUrl = window.location.origin + removeLastSlash(window.location.pathname);
             if (appUrl.toLowerCase().substring(appUrl.length - "/Pages".length) == "/pages") {
                 // remove that too
@@ -168,7 +172,7 @@
             url: url,
             method: "POST",
             headers: {
-                "Accept": "application/json; odata=verbose"
+                "Accept": "application/json;odata=verbose"                
             },
             contentType: "application/json;odata=verbose",
             body: file,
@@ -417,9 +421,9 @@
                     xmlStr += '>';
                     if (field.Type === 'Choice') {
                         xmlStr += '<CHOICES>';
-                        for (choice in field.choices) {
-                            xmlStr += '<CHOICE>' + field.choices[choice] + '</CHOICE>';
-                        }
+                        field.choices.forEach(function (choice) {
+                            xmlStr += '<CHOICE>' + choice + '</CHOICE>';
+                        });
                         xmlStr += '</CHOICES>';
                     }
                     xmlStr += '</Field>';
@@ -1010,6 +1014,80 @@
             }
 
             return defer.promise();
+        },
+        createFile: function (c, doclib, fname, body, overwriteBool) {
+            var web, theLib, fileCreateInfo, newFile, defer = new $.Deferred();
+            web = c.appContextSite.get_web();           
+            theLib = web.get_lists().getByTitle(doclib);
+
+            fileCreateInfo = new SP.FileCreationInformation();
+            fileCreateInfo.set_url(fname);
+            fileCreateInfo.set_content(new SP.Base64EncodedByteArray());
+            // do not overwrite if bool is not defined
+            fileCreateInfo.set_overwrite(overwriteBool||false);
+
+            var converted_arr = strToUTF8Arr(body);
+            for (var i = 0; i < converted_arr.length; ++i) {
+                fileCreateInfo.get_content().append(converted_arr[i]);
+            }
+            newFile = theLib.get_rootFolder().get_files().add(fileCreateInfo);
+            c.context.load(newFile);
+            c.context.executeQueryAsync(  successHandler,  errorHandler  );
+
+            function successHandler() { defer.resolve(newFile.get_serverRelativeUrl()); }
+
+            function errorHandler(sender, args) {  defer.reject(args.get_message()); }
+
+            function strToUTF8Arr(sDOMStr) {
+                var aBytes, nChr, nStrLen = sDOMStr.length, nArrLen = 0;
+                /* mapping... */
+                for (var nMapIdx = 0; nMapIdx < nStrLen; nMapIdx++) {
+                    nChr = sDOMStr.charCodeAt(nMapIdx);
+                    nArrLen += nChr < 0x80 ? 1 : nChr < 0x800 ? 2 : nChr < 0x10000 ? 3 : nChr < 0x200000 ? 4 : nChr < 0x4000000 ? 5 : 6;
+                }
+                aBytes = new Uint8Array(nArrLen);
+                /* transcription... */
+                for (var nIdx = 0, nChrIdx = 0; nIdx < nArrLen; nChrIdx++) {
+                    nChr = sDOMStr.charCodeAt(nChrIdx);
+                    if (nChr < 128) {
+                        /* one byte */
+                        aBytes[nIdx++] = nChr;
+                    } else if (nChr < 0x800) {
+                        /* two bytes */
+                        aBytes[nIdx++] = 192 + (nChr >>> 6);
+                        aBytes[nIdx++] = 128 + (nChr & 63);
+                    } else if (nChr < 0x10000) {
+                        /* three bytes */
+                        aBytes[nIdx++] = 224 + (nChr >>> 12);
+                        aBytes[nIdx++] = 128 + (nChr >>> 6 & 63);
+                        aBytes[nIdx++] = 128 + (nChr & 63);
+                    } else if (nChr < 0x200000) {
+                        /* four bytes */
+                        aBytes[nIdx++] = 240 + (nChr >>> 18);
+                        aBytes[nIdx++] = 128 + (nChr >>> 12 & 63);
+                        aBytes[nIdx++] = 128 + (nChr >>> 6 & 63);
+                        aBytes[nIdx++] = 128 + (nChr & 63);
+                    } else if (nChr < 0x4000000) {
+                        /* five bytes */
+                        aBytes[nIdx++] = 248 + (nChr >>> 24);
+                        aBytes[nIdx++] = 128 + (nChr >>> 18 & 63);
+                        aBytes[nIdx++] = 128 + (nChr >>> 12 & 63);
+                        aBytes[nIdx++] = 128 + (nChr >>> 6 & 63);
+                        aBytes[nIdx++] = 128 + (nChr & 63);
+                    } else /* if (nChr <= 0x7fffffff) */ {
+                        /* six bytes */
+                        aBytes[nIdx++] = 252 + /* (nChr >>> 32) is not possible in ECMAScript! So...: */ (nChr / 1073741824);
+                        aBytes[nIdx++] = 128 + (nChr >>> 24 & 63);
+                        aBytes[nIdx++] = 128 + (nChr >>> 18 & 63);
+                        aBytes[nIdx++] = 128 + (nChr >>> 12 & 63);
+                        aBytes[nIdx++] = 128 + (nChr >>> 6 & 63);
+                        aBytes[nIdx++] = 128 + (nChr & 63);
+                    }
+                }
+                return aBytes;
+            }
+            
+            return defer.promise();
         }
     };
 
@@ -1375,7 +1453,12 @@
 			getAppListPermissions: function (listTitle, userName) {
 				var c = newLocalContextInstance();
 				return jsom.getListPermissions(c, listTitle, userName);    
-			},				
+			},
+			getHostListPermissions: function (listTitle, userName) {
+			    // only works with full control on host web
+			    var c = newLocalContextInstance();
+			    return jsom.getListPermissions(c, listTitle, userName);    
+			},
             getHostListItems: function (listTitle, query) {
                 /* Example syntax:								
 				spyreqs.jsom.getHostListItems("myClasses","<View><Query><Where><IsNotNull><FieldRef Name='ClassGuid'/></IsNotNull></Where></Query></View>").then(
@@ -1553,6 +1636,14 @@
             setAppProperty: function (propName, val) {
                 var c = newLocalContextInstance();
                 return jsom.setWebProperty(c, propName, val);
+            },
+            createAppFile: function (doclib, fname, body, overwriteBool) {
+                var c = newLocalContextInstance();
+                return jsom.createFile(c, doclib, fname, body, overwriteBool);
+            },
+            createHostFile: function (doclib, fname, body, overwriteBool) {
+                var c = newRemoteContextInstance();
+                return jsom.createFile(c, doclib, fname, body, overwriteBool);
             }
         },
         utils: {
