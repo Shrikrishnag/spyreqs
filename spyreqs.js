@@ -4,7 +4,7 @@
         executor, baseUrl, targetStr,
 		notAnApp_FlagSum = 0,
 		say, rest, jsom, inAppMode = true,
-        spyreqs, spyreqs_version = "0.0.18";
+        spyreqs, spyreqs_version = "0.0.19";
 
     initSay();
     initSpyreqs();
@@ -22,6 +22,7 @@
 
     function initSpyreqs() {
         // init spyreqs, check if it runs for a Sharepoint App or a solution
+        var initTimer, isReady = false;
         queryParams = urlParamsObj();
         if (typeof queryParams.SPAppWebUrl !== 'undefined') {
             appUrl = decodeURIComponent(queryParams.SPAppWebUrl);
@@ -103,13 +104,8 @@
             });
             // load sp.js for jsom use if not already loadad            
             if (!SP.ClientContext) {
-                say("spyreqs is trying to load sp.js");
-                SP.SOD.executeFunc('sp.js', 'SP.ClientContext.get_current',
-                    function () {
-                        say('loaded: sp.js');
-                        if (typeof window.onSpyreqsReady == 'function') window.onSpyreqsReady();
-                    }
-                );
+                say("spyreqs is waiting for sp.js");
+                initTimer = setInterval(testReady, 500);
             } else {
                 say('sp.js is already loaded')
                 if (typeof window.onSpyreqsReady == 'function') window.onSpyreqsReady();
@@ -122,6 +118,23 @@
                 parts = domain.split('-'),
                 hash = parts[parts.length - 1];
             return (hash.length == 14);
+        }
+
+        function testReady() {
+            if (!isReady) {
+                SP.SOD.executeFunc('sp.js', 'SP.ClientContext.get_current',
+					function () {
+					    say('loaded: sp.js');
+					    if (!isReady) {
+					        if (typeof window.onSpyreqsReady == 'function') window.onSpyreqsReady();
+					        isReady = true;
+					    }
+					    clearInterval(initTimer);
+					}
+				);
+            } else {
+                clearInterval(initTimer);
+            }
         }
     }
 
@@ -318,14 +331,14 @@
         // for jsom use. Return an object with new instances for clear async requests        
         var returnObj = {}, context, appContextSite;
         if (!SP.ClientContext) {
-            say("SP.ClientContext was not loaded, laoding now. Please try again");
+            say("SP.ClientContext was not loaded, loading now. Please try again");
             SP.SOD.executeFunc('sp.js', 'SP.ClientContext.get_current',
                 function () { say('loaded: sp.js, spyreqs ready'); }
             );
             return null;
         }
         if (!inAppMode) {
-            say("not-in-app-mode. current web used");
+            //say("not-in-app-mode. current web used");
             context = new SP.ClientContext.get_current();
         } else {
             context = new SP.ClientContext(appUrl);
@@ -1111,7 +1124,7 @@
     };
 
     spyreqs = {
-        rest: {            
+        rest: {
             getHostLists: function (query) {
                 /**
                  * gets the Lists of the host Site
