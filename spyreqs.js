@@ -2,9 +2,9 @@
     "use strict";
     var appUrl, hostUrl, queryParams,
         executor, baseUrl, targetStr,
-		notAnApp_FlagSum = 0, 
-		say, rest, jsom, 
-        spyreqs, spyreqs_version = "0.0.17";
+		notAnApp_FlagSum = 0,
+		say, rest, jsom, inAppMode = true,
+        spyreqs, spyreqs_version = "0.0.18";
 
     initSay();
     initSpyreqs();
@@ -19,7 +19,7 @@
             say = function (what) { window.opener.console.log(what); };
         } else { say = function () { }; }
     }
-    
+
     function initSpyreqs() {
         // init spyreqs, check if it runs for a Sharepoint App or a solution
         queryParams = urlParamsObj();
@@ -58,7 +58,7 @@
             var domain = window.location.host.split('.')[0],
                 parts = domain.split('-'),
                 hash = parts[parts.length - 1];
-            return temphostUrl.replace("-"+hash, "");
+            return temphostUrl.replace("-" + hash, "");
         }
 
         function tryBuildAppUrl() {
@@ -84,8 +84,12 @@
             // to do... spyreqs is not ready yet since it has to load some js, but may be called and cause exception
             // spyreqs thinks this is not a sharepoint app, since url params 'SPHostUrl' or 'SPAppWebUrl' or both are missing
             say("spyreqs init mode: no-app");
+            inAppMode = false;
             var url = window.location.href;
             appUrl = hostUrl = url.substring(0, url.indexOf('/Pages'));
+            if (appUrl.length < 1) {
+                appUrl = hostUrl = url.substring(0, url.indexOf("?"));
+            }
             // load SP.RequestExecutor to let REST work on host site api
             $.getScript(hostUrl + "/_layouts/15/SP.RequestExecutor.js")
             .done(function (script, textStatus) {
@@ -97,13 +101,19 @@
             .fail(function (script, textStatus) {
                 say('could not load: RequestExecutor.js');
             });
-            // load sp.js for jsom use if not already loadad
-            say("spyreqs is trying to load sp.js");
+            // load sp.js for jsom use if not already loadad            
             if (!SP.ClientContext) {
+                say("spyreqs is trying to load sp.js");
                 SP.SOD.executeFunc('sp.js', 'SP.ClientContext.get_current',
-                    function () { say('loaded: sp.js'); }
+                    function () {
+                        say('loaded: sp.js');
+                        if (typeof window.onSpyreqsReady == 'function') window.onSpyreqsReady();
+                    }
                 );
-            } else { say('sp.js is already loaded') }
+            } else {
+                say('sp.js is already loaded')
+                if (typeof window.onSpyreqsReady == 'function') window.onSpyreqsReady();
+            }
         }
 
         function discoverIfApp(theurl) {
@@ -126,7 +136,7 @@
             },
             success: defer.resolve,
             error: defer.reject
-        }); 
+        });
 
         return defer.promise();
     }
@@ -141,10 +151,10 @@
             headers: {
                 Accept: "application/json;odata=verbose"
             },
-            success: function(data) {
+            success: function (data) {
                 defer.resolve(JSON.parse(data.body));
             },
-            fail: function(error) {
+            fail: function (error) {
                 defer.reject(error);
             }
         });
@@ -172,7 +182,7 @@
             url: url,
             method: "POST",
             headers: {
-                "Accept": "application/json;odata=verbose"                
+                "Accept": "application/json;odata=verbose"
             },
             contentType: "application/json;odata=verbose",
             body: file,
@@ -186,7 +196,7 @@
         return defer.promise();
     }
 
-    function addFolder(url,data){
+    function addFolder(url, data) {
         var defer = new $.Deferred();
 
         executor.executeAsync({
@@ -210,7 +220,7 @@
 
     function deleteAsync(url, etag) {
         var defer = new $.Deferred();
-        
+
         executor.executeAsync({
             url: url,
             method: "POST",
@@ -274,7 +284,7 @@
         });
         return defer.promise();
     }
-       
+
     function checkQuery(query) {
         /**
     * checks if the query argument is a string and if it is not returns an empty string
@@ -290,9 +300,9 @@
     function newRemoteContextInstance() {
         // for jsom use. Return an object with new instances for clear async requests
         var returnObj = {}, context, factory, appContextSite;
-		if (!SP.ClientContext) {
-			say("SP.ClientContext not loaded"); return null;
-		}
+        if (!SP.ClientContext) {
+            say("SP.ClientContext not loaded"); return null;
+        }
         context = new SP.ClientContext(appUrl);
         factory = new SP.ProxyWebRequestExecutorFactory(appUrl);
         context.set_webRequestExecutorFactory(factory);
@@ -303,17 +313,26 @@
         returnObj.appContextSite = appContextSite;
         return returnObj;
     }
-	
-	function newLocalContextInstance() {
+
+    function newLocalContextInstance() {
         // for jsom use. Return an object with new instances for clear async requests        
-		var returnObj = {}, context, appContextSite;
-		if (!SP.ClientContext) {
-			say("SP.ClientContext not loaded"); return null;
-		}
-        context = new SP.ClientContext(appUrl);    
+        var returnObj = {}, context, appContextSite;
+        if (!SP.ClientContext) {
+            say("SP.ClientContext was not loaded, laoding now. Please try again");
+            SP.SOD.executeFunc('sp.js', 'SP.ClientContext.get_current',
+                function () { say('loaded: sp.js, spyreqs ready'); }
+            );
+            return null;
+        }
+        if (!inAppMode) {
+            say("not-in-app-mode. current web used");
+            context = new SP.ClientContext.get_current();
+        } else {
+            context = new SP.ClientContext(appUrl);
+        }
         returnObj.context = context;
-		// nasty hack safelly find the obj
-		returnObj.appContextSite = context;
+        // nasty hack safelly find the obj
+        returnObj.appContextSite = context;
         return returnObj;
     }
 
@@ -352,14 +371,14 @@
             return String(str.substr(0, ind) + attached);
         } return String(str + "?" + param + "=" + val);
     }
-    
+
     function mirrorAppFunctions(obj, properties) {
         var keys, newKey;
 
-        properties.forEach(function(prop) {
+        properties.forEach(function (prop) {
             keys = Object.keys(obj[prop]);
 
-            keys.forEach(function(key) {
+            keys.forEach(function (key) {
                 if (key.indexOf('App') !== -1) {
                     newKey = key.replace('App', 'Web');
                     obj[prop][newKey] = obj[prop][key];
@@ -451,261 +470,261 @@
 
             return defer.promise();
         },
-		createList: function (c, listObj) {				
-			var web, theList, listCreationInfo, template, field, defer = new $.Deferred(), val_temp, fn_temp, isValidAttrBool,
+        createList: function (c, listObj) {
+            var web, theList, listCreationInfo, template, field, defer = new $.Deferred(), val_temp, fn_temp, isValidAttrBool,
 				lciAttrs = [
 					"url", "description", "documentTemplateType",
 					"customSchemaXml", "dataSourceProperties",
-					"quickLaunchOption", "templateFeatureId"		
-				], 
+					"quickLaunchOption", "templateFeatureId"
+				],
 				listAttrs = [
 					"contentTypesEnabled", "defaultContentApprovalWorkflowId",
 					"defaultDisplayFormUrl", "defaultEditFormUrl",
 					"defaultNewFormUrl", "documentTemplateUrl",
 					"draftVersionVisibility", "enableAttachments",
-					"enableFolderCreation",	"enableMinorVersions",
+					"enableFolderCreation", "enableMinorVersions",
 					"enableModeration", "enableVersioning",
 					"forceCheckout", "hidden", "isApplicationList",
 					"isSiteAssetsLibrary", "multipleDataList",
 					"noCrawl", "onQuickLaunch", "validationFormula",
 					"validationMessage", "direction"
 				];
-			
-			web = c.appContextSite.get_web();
-			listCreationInfo = new SP.ListCreationInformation();			
 
-			if (typeof listObj.title === 'undefined') {
-				say('createList cannot create without .title');
-				var args = { 
-					get_message : function() { return "createList cannot create without .title"; },		
-					get_stackTrace : function() { return null; }	
-				};				 
-				setTimeout( fail(null,args), 500 );
-				return defer.promise();	
-			}			
-			listCreationInfo.set_title(listObj.title);			
-			
-			if (typeof listObj.template === 'undefined') {
-				template = SP.ListTemplateType.genericList;
-			} else if (isNaN(listObj.template)) {
-				template = SP.ListTemplateType[listObj.template];
-			} else {
-				template = listObj.template;
-			}
-			listCreationInfo.set_templateType(template);
-			
-			// set any other attribute of listCreationInformation from listObject	
-			for (var attr in listObj) {
-				val_temp = listObj[attr];
-				fn_temp = "set_" + attr;
-				if (typeof listCreationInfo[fn_temp] == 'function') {
-					listCreationInfo[fn_temp](val_temp);
-				} 
-			}			
-			theList = web.get_lists().add(listCreationInfo);	
-			
-			// set any other attribute of list from listObject	
-			for (var attr in listObj) {
-				val_temp = listObj[attr];
-				fn_temp = "set_" + attr;				 
-				if (listAttrs.indexOf(attr)>-1) {
-					theList[fn_temp](val_temp);
-				}     
-			}	
-			theList.update();	
-			
-			c.context.load(theList);
-			c.context.executeQueryAsync(success, fail);
+            web = c.appContextSite.get_web();
+            listCreationInfo = new SP.ListCreationInformation();
 
-			function success() {						
-				// add fields
-				if (listObj.fields) {
-					// start creating fields
-					$.when(jsom.createListFields(c.context, theList, listObj.fields)).then(
+            if (typeof listObj.title === 'undefined') {
+                say('createList cannot create without .title');
+                var args = {
+                    get_message: function () { return "createList cannot create without .title"; },
+                    get_stackTrace: function () { return null; }
+                };
+                setTimeout(fail(null, args), 500);
+                return defer.promise();
+            }
+            listCreationInfo.set_title(listObj.title);
+
+            if (typeof listObj.template === 'undefined') {
+                template = SP.ListTemplateType.genericList;
+            } else if (isNaN(listObj.template)) {
+                template = SP.ListTemplateType[listObj.template];
+            } else {
+                template = listObj.template;
+            }
+            listCreationInfo.set_templateType(template);
+
+            // set any other attribute of listCreationInformation from listObject	
+            for (var attr in listObj) {
+                val_temp = listObj[attr];
+                fn_temp = "set_" + attr;
+                if (typeof listCreationInfo[fn_temp] == 'function') {
+                    listCreationInfo[fn_temp](val_temp);
+                }
+            }
+            theList = web.get_lists().add(listCreationInfo);
+
+            // set any other attribute of list from listObject	
+            for (var attr in listObj) {
+                val_temp = listObj[attr];
+                fn_temp = "set_" + attr;
+                if (listAttrs.indexOf(attr) > -1) {
+                    theList[fn_temp](val_temp);
+                }
+            }
+            theList.update();
+
+            c.context.load(theList);
+            c.context.executeQueryAsync(success, fail);
+
+            function success() {
+                // add fields
+                if (listObj.fields) {
+                    // start creating fields
+                    $.when(jsom.createListFields(c.context, theList, listObj.fields)).then(
 						function (data) {
-							// create List Fields finished
-							defer.resolve(listObj);
+						    // create List Fields finished
+						    defer.resolve(listObj);
 						},
 						function (error) {
-							defer.reject(error);
+						    defer.reject(error);
 						}
 					);
-				} else {
-					// no fields to create
-					defer.resolve(listObj);
-				}
-			}
+                } else {
+                    // no fields to create
+                    defer.resolve(listObj);
+                }
+            }
 
-			function fail(sender, args) {
-				var error = { sender: sender, args: args };
-				defer.reject(error);
-			}
+            function fail(sender, args) {
+                var error = { sender: sender, args: args };
+                defer.reject(error);
+            }
 
-			return defer.promise();			
-		},
-		addListItem: function (c, listTitle, itemObj) {
-			var web, theList, theListItem, prop, itemCreateInfo, defer = new $.Deferred();
-		 
-			web = c.appContextSite.get_web();
-			theList = web.get_lists().getByTitle(listTitle);
-			itemCreateInfo = new SP.ListItemCreationInformation();
-			theListItem = theList.addItem(itemCreateInfo);
-			for (prop in itemObj) {
-				theListItem.set_item(prop, itemObj[prop]);
-			}
-			theListItem.update();
-			c.context.load(theListItem);
-			c.context.executeQueryAsync(success, fail);
+            return defer.promise();
+        },
+        addListItem: function (c, listTitle, itemObj) {
+            var web, theList, theListItem, prop, itemCreateInfo, defer = new $.Deferred();
 
-			function success() {
-				defer.resolve(theListItem.get_id());
-			}
+            web = c.appContextSite.get_web();
+            theList = web.get_lists().getByTitle(listTitle);
+            itemCreateInfo = new SP.ListItemCreationInformation();
+            theListItem = theList.addItem(itemCreateInfo);
+            for (prop in itemObj) {
+                theListItem.set_item(prop, itemObj[prop]);
+            }
+            theListItem.update();
+            c.context.load(theListItem);
+            c.context.executeQueryAsync(success, fail);
 
-			function fail(sender, args) {
-				var error = { sender: sender, args: args };
-				defer.reject(error);
-			}
+            function success() {
+                defer.resolve(theListItem.get_id());
+            }
 
-			return defer.promise();
-		},
-		getItems: function (c, listTitle, query) {
-			var web, theList, resultCollection, defer = new $.Deferred();
-		
-			web = c.appContextSite.get_web(); 
-			theList = web.get_lists().getByTitle(listTitle); 
-			var camlQuery = new SP.CamlQuery();
-			camlQuery.set_viewXml(query);
-			resultCollection = theList.getItems(camlQuery);
-			c.context.load(resultCollection);  
-			c.context.executeQueryAsync(success, fail);
+            function fail(sender, args) {
+                var error = { sender: sender, args: args };
+                defer.reject(error);
+            }
 
-			function success() {
-				defer.resolve(resultCollection);
-			}
+            return defer.promise();
+        },
+        getItems: function (c, listTitle, query) {
+            var web, theList, resultCollection, defer = new $.Deferred();
 
-			function fail(sender, args) {
-				var error = {
-					sender: sender,
-					args: args
-				};
-				defer.reject(error);
-			}
+            web = c.appContextSite.get_web();
+            theList = web.get_lists().getByTitle(listTitle);
+            var camlQuery = new SP.CamlQuery();
+            camlQuery.set_viewXml(query);
+            resultCollection = theList.getItems(camlQuery);
+            c.context.load(resultCollection);
+            c.context.executeQueryAsync(success, fail);
 
-			return defer.promise();
-		},
-		updateListItem: function (c, listTitle, itemObj, itemId) {
-			var web, theList, theListItem, prop, itemId, itemCreateInfo, defer = new $.Deferred();
-		 
-			web = c.appContextSite.get_web();
-			theList = web.get_lists().getByTitle(listTitle);			 
-			
-			theListItem = theList.getItemById(itemId);
-			for (prop in itemObj) {
-				theListItem.set_item(prop, itemObj[prop]);
-			}
-			theListItem.update();
-			c.context.load(theListItem);
-			c.context.executeQueryAsync(success, fail);
+            function success() {
+                defer.resolve(resultCollection);
+            }
 
-			function success() {
-				defer.resolve(itemId);
-			}
+            function fail(sender, args) {
+                var error = {
+                    sender: sender,
+                    args: args
+                };
+                defer.reject(error);
+            }
 
-			function fail(sender, args) {
-				var error = { sender: sender, args: args };
-				defer.reject(error);
-			}
+            return defer.promise();
+        },
+        updateListItem: function (c, listTitle, itemObj, itemId) {
+            var web, theList, theListItem, prop, itemId, itemCreateInfo, defer = new $.Deferred();
 
-			return defer.promise();
-		},
-		recycleListItem: function (c, listTitle, itemId) {
-		    var web, theList, theListItem, defer = new $.Deferred();
-		 
-		    web = c.appContextSite.get_web();
-		    theList = web.get_lists().getByTitle(listTitle);			 
-			
-		    theListItem = theList.getItemById(itemId);		    
-		    theListItem.recycle();
-		    c.context.executeQueryAsync(success, fail);
+            web = c.appContextSite.get_web();
+            theList = web.get_lists().getByTitle(listTitle);
 
-		    function success() {
-		        defer.resolve(itemId);
-		    }
+            theListItem = theList.getItemById(itemId);
+            for (prop in itemObj) {
+                theListItem.set_item(prop, itemObj[prop]);
+            }
+            theListItem.update();
+            c.context.load(theListItem);
+            c.context.executeQueryAsync(success, fail);
 
-		    function fail(sender, args) {
-		        var error = { sender: sender, args: args };
-		        defer.reject(error);
-		    }
+            function success() {
+                defer.resolve(itemId);
+            }
 
-		    return defer.promise();
-		},
-		checkList: function (c, listTitle) {
-			var web, collectionList, defer = new $.Deferred();
-			
-			if (!c) {
-				// SP.ClientContext not loaded, c is null
-				var args = { 
-					get_message : function() { return "SP.ClientContext not loaded"; },		
-					get_stackTrace : function() { return null; }	
-				};				 
-				setTimeout( fail(null,args), 500 );
-				return defer.promise();				
-			}
-			
-			web = c.appContextSite.get_web();
-			collectionList = web.get_lists();
-			// this will only load Title, no other list properties
-			c.context.load(collectionList, 'Include(Title)');
-			c.context.executeQueryAsync(success, fail);
+            function fail(sender, args) {
+                var error = { sender: sender, args: args };
+                defer.reject(error);
+            }
 
-			function success() {
-				var listInfo = '',
+            return defer.promise();
+        },
+        recycleListItem: function (c, listTitle, itemId) {
+            var web, theList, theListItem, defer = new $.Deferred();
+
+            web = c.appContextSite.get_web();
+            theList = web.get_lists().getByTitle(listTitle);
+
+            theListItem = theList.getItemById(itemId);
+            theListItem.recycle();
+            c.context.executeQueryAsync(success, fail);
+
+            function success() {
+                defer.resolve(itemId);
+            }
+
+            function fail(sender, args) {
+                var error = { sender: sender, args: args };
+                defer.reject(error);
+            }
+
+            return defer.promise();
+        },
+        checkList: function (c, listTitle) {
+            var web, collectionList, defer = new $.Deferred();
+
+            if (!c) {
+                // SP.ClientContext not loaded, c is null
+                var args = {
+                    get_message: function () { return "SP.ClientContext not loaded"; },
+                    get_stackTrace: function () { return null; }
+                };
+                setTimeout(fail(null, args), 500);
+                return defer.promise();
+            }
+
+            web = c.appContextSite.get_web();
+            collectionList = web.get_lists();
+            // this will only load Title, no other list properties
+            c.context.load(collectionList, 'Include(Title)');
+            c.context.executeQueryAsync(success, fail);
+
+            function success() {
+                var listInfo = '',
 					answerBool = false,
 					listEnumerator = collectionList.getEnumerator();
 
-				while (listEnumerator.moveNext()) {
-					var oList = listEnumerator.get_current();
-					if (oList.get_title() == listTitle) {
-						answerBool = true;
-						break;
-					}
-				}
-			    // say("check list: " + listTitle + ": " + answerBool);
-				defer.resolve(answerBool);
-			}
+                while (listEnumerator.moveNext()) {
+                    var oList = listEnumerator.get_current();
+                    if (oList.get_title() == listTitle) {
+                        answerBool = true;
+                        break;
+                    }
+                }
+                // say("check list: " + listTitle + ": " + answerBool);
+                defer.resolve(answerBool);
+            }
 
-			function fail(sender, args) {
-				var error = { sender: sender, args: args 	};
-				defer.reject(error);
-			}
+            function fail(sender, args) {
+                var error = { sender: sender, args: args };
+                defer.reject(error);
+            }
 
-			return defer.promise();
-		},
-		removeRecentElemByTitle: function (c, elemTitle, literalsArray) {
-		    var defer = new $.Deferred();
+            return defer.promise();
+        },
+        removeRecentElemByTitle: function (c, elemTitle, literalsArray) {
+            var defer = new $.Deferred();
 
-		    // if no literalsArray is provided, avoid error
-		    literalsArray = literalsArray || ["Recent"];
-		    // if literalsArray is a string, turn it into array
-		    if (!(literalsArray instanceof Array)) literalsArray = [literalsArray];  
-            
-		    function success() {
-		        var msg = 'element removed from Recent: ' + elemTitle;
-		        defer.resolve(msg);
-		    }
+            // if no literalsArray is provided, avoid error
+            literalsArray = literalsArray || ["Recent"];
+            // if literalsArray is a string, turn it into array
+            if (!(literalsArray instanceof Array)) literalsArray = [literalsArray];
 
-		    function fail(sender, args) {
-		        var error = {
-		            sender: sender,
-		            args: args
-		        };
-		        defer.reject(error);
-		    }
-            		              		    
-		    c.ql = c.appContextSite.get_web().get_navigation().get_quickLaunch();
-		    var ql = c.ql; // extra-worried about multi calls...
-		    c.context.load(ql);
-		    c.context.executeQueryAsync(
+            function success() {
+                var msg = 'element removed from Recent: ' + elemTitle;
+                defer.resolve(msg);
+            }
+
+            function fail(sender, args) {
+                var error = {
+                    sender: sender,
+                    args: args
+                };
+                defer.reject(error);
+            }
+
+            c.ql = c.appContextSite.get_web().get_navigation().get_quickLaunch();
+            var ql = c.ql; // extra-worried about multi calls...
+            c.context.load(ql);
+            c.context.executeQueryAsync(
                 function () {
                     var objEnumerator = ql.getEnumerator(), navItem, recentsFoundBool, navItemTitle;
                     while (objEnumerator.moveNext()) {
@@ -756,175 +775,175 @@
                 fail
             );
 
-		    return defer.promise();
-		},
-		getList: function (c, listTitle) {
-			var web, theList, defer = new $.Deferred();			
-			 
-			web = c.appContextSite.get_web();
-			theList = web.get_lists().getByTitle(listTitle);
-			c.context.load(theList);
-			c.context.executeQueryAsync(success, fail);
+            return defer.promise();
+        },
+        getList: function (c, listTitle) {
+            var web, theList, defer = new $.Deferred();
 
-			function success() {				 
-				defer.resolve(theList);
-			}
+            web = c.appContextSite.get_web();
+            theList = web.get_lists().getByTitle(listTitle);
+            c.context.load(theList);
+            c.context.executeQueryAsync(success, fail);
 
-			function fail(sender, args) {
-				var error = {
-					sender: sender,
-					args: args
-				};
-				defer.reject(error);
-			}
+            function success() {
+                defer.resolve(theList);
+            }
 
-			return defer.promise();
-		},
-		deleteList: function (c, listTitle) {
-			var web, theList, defer = new $.Deferred();			
-			 
-			web = c.appContextSite.get_web();
-			theList = web.get_lists().getByTitle(listTitle);
-			theList.deleteObject();
-			c.context.executeQueryAsync(success, fail);
+            function fail(sender, args) {
+                var error = {
+                    sender: sender,
+                    args: args
+                };
+                defer.reject(error);
+            }
 
-			function success() {				 
-				defer.resolve(listTitle + " deleted");
-			}
+            return defer.promise();
+        },
+        deleteList: function (c, listTitle) {
+            var web, theList, defer = new $.Deferred();
 
-			function fail(sender, args) {
-				var error = {
-					sender: sender,
-					args: args
-				};
-				defer.reject(error);
-			}
+            web = c.appContextSite.get_web();
+            theList = web.get_lists().getByTitle(listTitle);
+            theList.deleteObject();
+            c.context.executeQueryAsync(success, fail);
 
-			return defer.promise();
-		},
-		recycleList: function (c, listTitle) {
-		    var web, theList, defer = new $.Deferred();			
-			 
-		    web = c.appContextSite.get_web();
-		    theList = web.get_lists().getByTitle(listTitle);
-		    theList.recycle();
-		    c.context.executeQueryAsync(success, fail);
+            function success() {
+                defer.resolve(listTitle + " deleted");
+            }
 
-		    function success() {				 
-		        defer.resolve(listTitle + " recycled");
-		    }
+            function fail(sender, args) {
+                var error = {
+                    sender: sender,
+                    args: args
+                };
+                defer.reject(error);
+            }
 
-		    function fail(sender, args) {
-		        var error = {
-		            sender: sender,
-		            args: args
-		        };
-		        defer.reject(error);
-		    }
+            return defer.promise();
+        },
+        recycleList: function (c, listTitle) {
+            var web, theList, defer = new $.Deferred();
 
-		    return defer.promise();
-		},
-		getListPermissions: function (c, listTitle, userName) {
-			var web, theList, userPerms, defer = new $.Deferred();			
-		    // userName sample: i:0#.f|membership|g.panoutsopoulos@inedulms.com
-			web = c.appContextSite.get_web();
-			theList = web.get_lists().getByTitle(listTitle);
-			userPerms = theList.getUserEffectivePermissions(userName);
-			c.context.load(theList, 'EffectiveBasePermissions');
-			c.context.executeQueryAsync(success, fail);
+            web = c.appContextSite.get_web();
+            theList = web.get_lists().getByTitle(listTitle);
+            theList.recycle();
+            c.context.executeQueryAsync(success, fail);
 
-			function success() {				 
-				defer.resolve(userPerms);
-			}
+            function success() {
+                defer.resolve(listTitle + " recycled");
+            }
 
-			function fail(sender, args) {
-				var error = {
-					sender: sender,
-					args: args
-				};
-				defer.reject(error);
-			}
+            function fail(sender, args) {
+                var error = {
+                    sender: sender,
+                    args: args
+                };
+                defer.reject(error);
+            }
 
-			return defer.promise();
-		},
-		getListItemHasUniquePerms: function (c, listTitle, itemIdOrFilename) {
-		    var web, theList, queryStr, resultCollection,
+            return defer.promise();
+        },
+        getListPermissions: function (c, listTitle, userName) {
+            var web, theList, userPerms, defer = new $.Deferred();
+            // userName sample: i:0#.f|membership|g.panoutsopoulos@inedulms.com
+            web = c.appContextSite.get_web();
+            theList = web.get_lists().getByTitle(listTitle);
+            userPerms = theList.getUserEffectivePermissions(userName);
+            c.context.load(theList, 'EffectiveBasePermissions');
+            c.context.executeQueryAsync(success, fail);
+
+            function success() {
+                defer.resolve(userPerms);
+            }
+
+            function fail(sender, args) {
+                var error = {
+                    sender: sender,
+                    args: args
+                };
+                defer.reject(error);
+            }
+
+            return defer.promise();
+        },
+        getListItemHasUniquePerms: function (c, listTitle, itemIdOrFilename) {
+            var web, theList, queryStr, resultCollection,
 		        defer = new $.Deferred(),
                 camlQuery = new SP.CamlQuery();
 
-		    web = c.appContextSite.get_web();
-		    theList = web.get_lists().getByTitle(listTitle);
+            web = c.appContextSite.get_web();
+            theList = web.get_lists().getByTitle(listTitle);
 
-		    if (!isNaN(itemIdOrFilename)) {
-		        queryStr = "<View><Query><Where><Eq><FieldRef Name='ID'/><Value Type='Counter'>"
+            if (!isNaN(itemIdOrFilename)) {
+                queryStr = "<View><Query><Where><Eq><FieldRef Name='ID'/><Value Type='Counter'>"
                             + itemIdOrFilename + "</Value></Eq></Where></Query></View>";
-		    } else {
-		        queryStr = "<View><Query><Where><Eq><FieldRef Name='FileLeafRef'/><Value Type='File'>"
+            } else {
+                queryStr = "<View><Query><Where><Eq><FieldRef Name='FileLeafRef'/><Value Type='File'>"
                            + itemIdOrFilename + "</Value></Eq></Where></Query></View>";
-		    }
-		  
-		    camlQuery.set_viewXml(queryStr);
-		    var resultCollection = theList.getItems(camlQuery);
+            }
 
-		    c.context.load(resultCollection, "Include(Title, DisplayName, HasUniqueRoleAssignments)");
-		    c.context.executeQueryAsync(success, fail);
+            camlQuery.set_viewXml(queryStr);
+            var resultCollection = theList.getItems(camlQuery);
 
-		    function success() {
-		        var answerBool, itemTitle, listEnumerator = resultCollection.getEnumerator();
+            c.context.load(resultCollection, "Include(Title, DisplayName, HasUniqueRoleAssignments)");
+            c.context.executeQueryAsync(success, fail);
 
-		        while (listEnumerator.moveNext()) {
-		            // normally we expect only one row
-		            var oListItem = listEnumerator.get_current();
-		            answerBool = oListItem.get_hasUniqueRoleAssignments();
-		        }
-		        
-		        defer.resolve(answerBool);
-		    }
+            function success() {
+                var answerBool, itemTitle, listEnumerator = resultCollection.getEnumerator();
 
-		    function fail(sender, args) {
-		        var error = {
-		            sender: sender,
-		            args: args
-		        };
-		        defer.reject(error);
-		    }
+                while (listEnumerator.moveNext()) {
+                    // normally we expect only one row
+                    var oListItem = listEnumerator.get_current();
+                    answerBool = oListItem.get_hasUniqueRoleAssignments();
+                }
 
-		    return defer.promise();
-		},
-		getAllListsHasUniquePerms: function (c) {
-		    var web, theList, defer = new $.Deferred(), collectionList;
+                defer.resolve(answerBool);
+            }
 
-		    web = c.appContextSite.get_web();
-		    collectionList = web.get_lists();
-		    c.context.load(collectionList, 'Include(Title, HasUniqueRoleAssignments)');
-		    c.context.executeQueryAsync(success, fail);
+            function fail(sender, args) {
+                var error = {
+                    sender: sender,
+                    args: args
+                };
+                defer.reject(error);
+            }
 
-		    function success() {
-		        var listInfo = '', answerBool, title, resultsArray = [], 
+            return defer.promise();
+        },
+        getAllListsHasUniquePerms: function (c) {
+            var web, theList, defer = new $.Deferred(), collectionList;
+
+            web = c.appContextSite.get_web();
+            collectionList = web.get_lists();
+            c.context.load(collectionList, 'Include(Title, HasUniqueRoleAssignments)');
+            c.context.executeQueryAsync(success, fail);
+
+            function success() {
+                var listInfo = '', answerBool, title, resultsArray = [],
                     listEnumerator = collectionList.getEnumerator();
 
-		        while (listEnumerator.moveNext()) {
-		            var tempObj, oList = listEnumerator.get_current();
-		            tempObj = {
-		                title: oList.get_title(),
-		                hasUniqePerms: oList.get_hasUniqueRoleAssignments()
-		            };
-		            resultsArray.push(tempObj);
-		        }
-		        
-		        defer.resolve(resultsArray);
-		    }
+                while (listEnumerator.moveNext()) {
+                    var tempObj, oList = listEnumerator.get_current();
+                    tempObj = {
+                        title: oList.get_title(),
+                        hasUniqePerms: oList.get_hasUniqueRoleAssignments()
+                    };
+                    resultsArray.push(tempObj);
+                }
 
-		    function fail(sender, args) {
-		        var error = {
-		            sender: sender,
-		            args: args
-		        };
-		        defer.reject(error);
-		    }
+                defer.resolve(resultsArray);
+            }
 
-		    return defer.promise();
-		},		
+            function fail(sender, args) {
+                var error = {
+                    sender: sender,
+                    args: args
+                };
+                defer.reject(error);
+            }
+
+            return defer.promise();
+        },
         getListHasUniquePerms: function (c, listTitle) {
             var web, theList, defer = new $.Deferred(), collectionList;
 
@@ -934,7 +953,7 @@
             c.context.executeQueryAsync(success, fail);
 
             function success() {
-                var listInfo = '', answerBool=-1, listEnumerator = collectionList.getEnumerator();
+                var listInfo = '', answerBool = -1, listEnumerator = collectionList.getEnumerator();
 
                 while (listEnumerator.moveNext()) {
                     var oList = listEnumerator.get_current();
@@ -1017,14 +1036,14 @@
         },
         createFile: function (c, doclib, fname, body, overwriteBool) {
             var web, theLib, fileCreateInfo, newFile, defer = new $.Deferred();
-            web = c.appContextSite.get_web();           
+            web = c.appContextSite.get_web();
             theLib = web.get_lists().getByTitle(doclib);
 
             fileCreateInfo = new SP.FileCreationInformation();
             fileCreateInfo.set_url(fname);
             fileCreateInfo.set_content(new SP.Base64EncodedByteArray());
             // do not overwrite if bool is not defined
-            fileCreateInfo.set_overwrite(overwriteBool||false);
+            fileCreateInfo.set_overwrite(overwriteBool || false);
 
             var converted_arr = strToUTF8Arr(body);
             for (var i = 0; i < converted_arr.length; ++i) {
@@ -1032,11 +1051,11 @@
             }
             newFile = theLib.get_rootFolder().get_files().add(fileCreateInfo);
             c.context.load(newFile);
-            c.context.executeQueryAsync(  successHandler,  errorHandler  );
+            c.context.executeQueryAsync(successHandler, errorHandler);
 
             function successHandler() { defer.resolve(newFile.get_serverRelativeUrl()); }
 
-            function errorHandler(sender, args) {  defer.reject(args.get_message()); }
+            function errorHandler(sender, args) { defer.reject(args.get_message()); }
 
             function strToUTF8Arr(sDOMStr) {
                 var aBytes, nChr, nStrLen = sDOMStr.length, nArrLen = 0;
@@ -1086,27 +1105,27 @@
                 }
                 return aBytes;
             }
-            
+
             return defer.promise();
         }
     };
 
     spyreqs = {
-        rest: {
-            /**
-             * gets the Lists of the host Site
-             * @param  {string} query [the query to execute example:"$filter=..."]
-             * example of using the function
-             * spyreqs.rest.getHostLists("$select=...").then(function(data){//doSomething with the data},function(error){//handle the error});
-             */           
+        rest: {            
             getHostLists: function (query) {
+                /**
+                 * gets the Lists of the host Site
+                 * @param  {string} query [the query to execute example:"$filter=..."]
+                 * example of using the function
+                 * spyreqs.rest.getHostLists("$select=...").then(function(data){//doSomething with the data},function(error){//handle the error});
+                 */
                 var url = baseUrl + "web/lists?" + checkQuery(query) + targetStr;
                 return getAsync(url);
             },
             getAppLists: function (query) {
                 var url = appUrl + "/_api/web/lists?" + checkQuery(query);
                 return getAsync(url);
-            },           
+            },
             getHostListByTitle: function (listTitle, query) {
                 /**
                 * gets a List from the Host Site by the Title of the List
@@ -1115,7 +1134,7 @@
                 */
                 var url = baseUrl + "web/lists/getByTitle('" + listTitle + "')?" + checkQuery(query) + targetStr;
                 return getAsync(url);
-            },            
+            },
             getAppListByTitle: function (listTitle, query) {
                 /**
                  * gets the Items of a List from the Host Site
@@ -1132,7 +1151,7 @@
             getAppListItems: function (listTitle, query) {
                 var url = appUrl + "/_api/web/lists/getByTitle('" + listTitle + "')/Items?" + checkQuery(query);
                 return getAsync(url);
-            },            
+            },
             getHostListFields: function (listTitle, query) {
                 /**
                  * gets the Fields of a List form the Host Site
@@ -1145,7 +1164,7 @@
             getAppListFields: function (listTitle, query) {
                 var url = appUrl + "/_api/web/lists/getByTitle('" + listTitle + "')/Fields?" + checkQuery(query);
                 return getAsync(url);
-            },           
+            },
             createHostList: function (list) {
                 /**
                 * create a List at the Host Site
@@ -1157,7 +1176,7 @@
             createAppList: function (list) {
                 var url = appUrl + "/_api/web/lists?";
                 return rest.createList(url, list);
-            },           
+            },
             addHostListItem: function (listTitle, item) {
                 /**
                 * adds an item to a Host List
@@ -1171,7 +1190,7 @@
             addAppListItem: function (listTitle, item) {
                 var url = appUrl + "/_api/web/lists/getByTitle('" + listTitle + "')/Items?";
                 return createAsync(url, item);
-            },           
+            },
             deleteHostListItem: function (listTitle, itemId, etag) {
                 /**
                 * deletes an item from List from the Host Site
@@ -1186,7 +1205,7 @@
                 var url = appUrl + "/_api/web/lists/getByTitle('" + listTitle + "')/Items(" + itemId + ")?";
                 return deleteAsync(url, etag);
             },
-            updateHostList:function(list){
+            updateHostList: function (list) {
                 //list must have Title, Id and __metadata with property type 
                 var url = baseUrl + "web/lists/getByTitle('" + list.Title + "')?" + targetStr;
                 return updateAsync(url, list);
@@ -1267,11 +1286,11 @@
                 var url = appUrl + "/_api/web/GetFileByServerRelativeUrl('" + fileUrl + "')/$value?";
                 return getFile(url);
             },
-            getHostFolderFiles:function(folderName){
+            getHostFolderFiles: function (folderName) {
                 var url = baseUrl + "web/GetFolderByServerRelativeUrl('" + folderName + "')/Files?" + targetStr;
                 return getAsync(url);
             },
-            getHostFolderFolders:function(folderName){
+            getHostFolderFolders: function (folderName) {
                 var url = baseUrl + "web/GetFolderByServerRelativeUrl('" + folderName + "')/Folders?" + targetStr;
                 return getAsync(url);
             },
@@ -1300,13 +1319,13 @@
                 var url = appUrl + "/_api/web/GetFolderByServerRelativeUrl('" + folderName + "')/Files/Add(url='" + fileName + "',overwrite=true)?";
                 return addFile(url, file);
             },
-            getHostListItemAttachments:function(listTitle,itemId){
-                var url = baseUrl + "web/lists/getByTitle('" + listTitle + "')/Items("+itemId+")/AttachmentFiles?" + targetStr;
+            getHostListItemAttachments: function (listTitle, itemId) {
+                var url = baseUrl + "web/lists/getByTitle('" + listTitle + "')/Items(" + itemId + ")/AttachmentFiles?" + targetStr;
                 return getAsync(url);
             },
-            addHostListItemAttachment:function(listTitle,itemId,fileName,file){
-                var url = baseUrl + "web/lists/getByTitle('" + listTitle + "')/Items("+itemId+")/AttachmentFiles/add(FileName='"+fileName+"')?" + targetStr;
-                return createAsync(url,file);  
+            addHostListItemAttachment: function (listTitle, itemId, fileName, file) {
+                var url = baseUrl + "web/lists/getByTitle('" + listTitle + "')/Items(" + itemId + ")/AttachmentFiles/add(FileName='" + fileName + "')?" + targetStr;
+                return createAsync(url, file);
             },
             getSiteUsers: function (query) {
                 /**
@@ -1322,43 +1341,43 @@
                     url = baseUrl + "web/lists/getByTitle('" + listTitle + "')/breakroleinheritance(copyRoleAssignments =" + copyRolesStr + ",clearSubscopes =" + clearSubScopeStr + ")?" + targetStr;
                 return postAsync(url);
             },
-            breakRoleInheritanceOfAppList: function (listTitle, copyRolesStr, clearSubScopeStr) {                
+            breakRoleInheritanceOfAppList: function (listTitle, copyRolesStr, clearSubScopeStr) {
                 var defer = new $.Deferred(), copyRolesStr = copyRolesStr || "true", clearSubScopeStr = clearSubScopeStr || "false",
                     url = appUrl + "/_api/web/lists/getByTitle('" + listTitle + "')/breakroleinheritance(copyRoleAssignments =" + copyRolesStr + ",clearSubscopes =" + clearSubScopeStr + ")?";
                 return postAsync(url);
             },
             resetRoleInheritanceOfAppList: function (listTitle) {
                 var defer = new $.Deferred(),
-                    url = appUrl + "/_api/web/lists/getByTitle('" + listTitle + "')/resetroleinheritance?";                
+                    url = appUrl + "/_api/web/lists/getByTitle('" + listTitle + "')/resetroleinheritance?";
                 return postAsync(url);
             },
             resetRoleInheritanceOfHostList: function (listTitle) {
                 var defer = new $.Deferred(),
-                    url = baseUrl + "web/lists/getByTitle('" + listTitle + "')/resetroleinheritance?" + targetStr;                
+                    url = baseUrl + "web/lists/getByTitle('" + listTitle + "')/resetroleinheritance?" + targetStr;
                 return postAsync(url);
             },
-            givePermissionToGroupToAppList: function(listTitle, permissionName, groupName) {
+            givePermissionToGroupToAppList: function (listTitle, permissionName, groupName) {
                 var groupId;
 
                 return this.breakRoleInheritanceOfAppList(listTitle)
-                    .then(function() {
+                    .then(function () {
                         //get the Id of the Group
                         var url = appUrl + "/_api/web/sitegroups/getByName('" + groupName + "')?$select=Id";
                         return getAsync(url);
                     })
-                    .then(function(groupData) {
+                    .then(function (groupData) {
                         //delete roleassignments for this group  
                         var url;
                         groupId = groupData.d.Id;
                         url = appUrl + "/_api/web/lists/getbytitle('" + listTitle + "')/roleassignments/getbyprincipalid('" + groupId + "')";
-                        return deleteAsync(url);                        
+                        return deleteAsync(url);
                     })
-                    .then(function() {
+                    .then(function () {
                         //get the id of the new roleAssignment
                         var url = appUrl + "/_api/web/roledefinitions/getByName('" + permissionName + "')?select=Id";
                         return getAsync(url);
                     })
-                    .done(function(permissionData) {
+                    .done(function (permissionData) {
                         //give to the group in the List Scope the new roleAssignment
                         var url = appUrl + "/_api/web/lists/getbytitle('" + listTitle + "')/roleassignments/" +
                             "addroleassignment(principalid=" + groupId + ",roledefid=" + permissionData.d.Id + ")",
@@ -1379,7 +1398,7 @@
             },
             getHostListRoleAssigmnent: function (listTitle, userId) {
                 // only works with full control on host web
-                var url = baseUrl + "web/lists/getbytitle('" + listTitle + "')/roleassignments/getbyprincipalid('" + userId + "')?"+targetStr;
+                var url = baseUrl + "web/lists/getbytitle('" + listTitle + "')/roleassignments/getbyprincipalid('" + userId + "')?" + targetStr;
                 return getAsync(url);
             },
             breakRoleInheritanceOfHostWeb: function (copyRolesStr, clearSubScopeStr) {
@@ -1391,7 +1410,7 @@
                 var defer = new $.Deferred(), copyRolesStr = copyRolesStr || "true", clearSubScopeStr = clearSubScopeStr || "false",
                     url = appUrl + "/_api/web/breakroleinheritance(copyRoleAssignments =" + copyRolesStr + ",clearSubscopes =" + clearSubScopeStr + ")?";
                 return postAsync(url);
-            }, 
+            },
             resetRoleInheritanceOfHostWeb: function () {
                 var defer = new $.Deferred(),
                     url = baseUrl + "web/resetroleinheritance?" + targetStr;
@@ -1414,51 +1433,51 @@
                     function(error) { alert('checkHostList request failed. ' +  error.args.get_message() + '\n' + error.args.get_stackTrace() ); }
                 );  
                 */
-				var c = newRemoteContextInstance();
-				// if SP.ClientContext is not loaded, c will be null. 
-				// But, send the promise and let disolve there
-				return jsom.checkList(c, listTitle);				
+                var c = newRemoteContextInstance();
+                // if SP.ClientContext is not loaded, c will be null. 
+                // But, send the promise and let disolve there
+                return jsom.checkList(c, listTitle);
             },
-			checkAppList: function (listTitle) { 
+            checkAppList: function (listTitle) {
                 /* syntax example: see checkHostList */
-				var c = newLocalContextInstance();
-				// if SP.ClientContext is not loaded, c will be null. 
-				// But, send the promise and let disolve there
-				return jsom.checkList(c, listTitle);
+                var c = newLocalContextInstance();
+                // if SP.ClientContext is not loaded, c will be null. 
+                // But, send the promise and let disolve there
+                return jsom.checkList(c, listTitle);
             },
-			getHostList: function (listTitle) {
-				var c = newRemoteContextInstance();
-				return jsom.getList(c, listTitle);    
-			},
-			getAppList: function (listTitle) {
-				var c = newLocalContextInstance();
-				return jsom.getList(c, listTitle);    
-			},
-			deleteHostList: function (listTitle) {
-				var c = newRemoteContextInstance();
-				return jsom.deleteList(c, listTitle);    
-			},
-			deleteAppList: function (listTitle) {
-				var c = newLocalContextInstance();
-				return jsom.deleteList(c, listTitle);    
-			},
-			recycleHostList: function (listTitle) {
-			    var c = newRemoteContextInstance();
-			    return jsom.recycleList(c, listTitle);
-			},
-			recycleAppList: function (listTitle) {
-			    var c = newLocalContextInstance();
-			    return jsom.recycleList(c, listTitle);
-			},
-			getAppListPermissions: function (listTitle, userName) {
-				var c = newLocalContextInstance();
-				return jsom.getListPermissions(c, listTitle, userName);    
-			},
-			getHostListPermissions: function (listTitle, userName) {
-			    // only works with full control on host web
-			    var c = newLocalContextInstance();
-			    return jsom.getListPermissions(c, listTitle, userName);    
-			},
+            getHostList: function (listTitle) {
+                var c = newRemoteContextInstance();
+                return jsom.getList(c, listTitle);
+            },
+            getAppList: function (listTitle) {
+                var c = newLocalContextInstance();
+                return jsom.getList(c, listTitle);
+            },
+            deleteHostList: function (listTitle) {
+                var c = newRemoteContextInstance();
+                return jsom.deleteList(c, listTitle);
+            },
+            deleteAppList: function (listTitle) {
+                var c = newLocalContextInstance();
+                return jsom.deleteList(c, listTitle);
+            },
+            recycleHostList: function (listTitle) {
+                var c = newRemoteContextInstance();
+                return jsom.recycleList(c, listTitle);
+            },
+            recycleAppList: function (listTitle) {
+                var c = newLocalContextInstance();
+                return jsom.recycleList(c, listTitle);
+            },
+            getAppListPermissions: function (listTitle, userName) {
+                var c = newLocalContextInstance();
+                return jsom.getListPermissions(c, listTitle, userName);
+            },
+            getHostListPermissions: function (listTitle, userName) {
+                // only works with full control on host web
+                var c = newLocalContextInstance();
+                return jsom.getListPermissions(c, listTitle, userName);
+            },
             getHostListItems: function (listTitle, query) {
                 /* Example syntax:								
 				spyreqs.jsom.getHostListItems("myClasses","<View><Query><Where><IsNotNull><FieldRef Name='ClassGuid'/></IsNotNull></Where></Query></View>").then(
@@ -1472,14 +1491,14 @@
 					},
 					function(error) { alert('getAppListItems request failed. ' +  error.args.get_message() + '\n' + error.args.get_stackTrace() ); }
 				 ); 
-				*/        
+				*/
                 var c = newRemoteContextInstance();
-				return jsom.getItems(c, listTitle, query);               
+                return jsom.getItems(c, listTitle, query);
             },
-			getAppListItems: function (listTitle, query) { 
-				/* Example syntax: see spyreqs.jsom.getHostListItems	 */		
+            getAppListItems: function (listTitle, query) {
+                /* Example syntax: see spyreqs.jsom.getHostListItems	 */
                 var c = newLocalContextInstance();
-				return jsom.getItems(c, listTitle, query);               
+                return jsom.getItems(c, listTitle, query);
             },
             addHostListItem: function (listTitle, itemObj) {
                 /* example: 
@@ -1487,50 +1506,50 @@
                     function(itemId) { alert("item was added, id:"+itemId); },
                     function(error) { alert('addHostListItem request failed. ' +  error.args.get_message() + '\n' + error.args.get_stackTrace() ); }
                 );  
-                */              
+                */
                 var c = newRemoteContextInstance();
-				return jsom.addListItem(c, listTitle, itemObj);
+                return jsom.addListItem(c, listTitle, itemObj);
             },
-			addAppListItem: function (listTitle, itemObj) {
-				/* example: see addHostListItem example */
-				var c = newLocalContextInstance();
-				return jsom.addListItem(c, listTitle, itemObj);
-			},
-			updateAppListItem: function (listTitle, itemObj, itemId) {
+            addAppListItem: function (listTitle, itemObj) {
+                /* example: see addHostListItem example */
+                var c = newLocalContextInstance();
+                return jsom.addListItem(c, listTitle, itemObj);
+            },
+            updateAppListItem: function (listTitle, itemObj, itemId) {
                 /* example: 
                 spyreqs.jsom.updateAppListItem("My List", {"Title":"my item", "Score":90}, 9).then(
                     function(itemId) { alert("item was added, id:"+itemId); },
                     function(error) { alert('addHostListItem request failed. ' +  error.args.get_message() + '\n' + error.args.get_stackTrace() ); }
                 );  
-                */              
+                */
                 var c = newLocalContextInstance();
-				return jsom.updateListItem(c, listTitle, itemObj, itemId);
+                return jsom.updateListItem(c, listTitle, itemObj, itemId);
             },
-			updateHostListItem: function (listTitle, itemObj, itemId) {
-                /* syntax example: see updateAppListItem example */            
+            updateHostListItem: function (listTitle, itemObj, itemId) {
+                /* syntax example: see updateAppListItem example */
                 var c = newRemoteContextInstance();
-				return jsom.updateListItem(c, listTitle, itemObj, itemId);
-			},
-			recycleHostListItem: function (listTitle, itemId) {
-			    /* syntax example: see updateAppListItem example */            
-			    var c = newRemoteContextInstance();
-			    return jsom.recycleListItem(c, listTitle, itemId);
-			},
-			recycleAppListItem: function (listTitle, itemId) {
-			    /* syntax example: see updateAppListItem example */            
-			    var c = newRemoteContextInstance();
-			    return jsom.recycleListItem(c, listTitle, itemId);
-			},
-			removeHostRecentElemByTitle: function (elemTitle, literalsArray) {
-				// removes element from Host site Recent node, under QuickLaunch node. 
-				var c = newRemoteContextInstance();				
-				return jsom.removeRecentElemByTitle(c, elemTitle, literalsArray);
-			},	
-			removeAppRecentElemByTitle: function (elemTitle, literalsArray) {
-				// removes element from Host site Recent node, under QuickLaunch node. 
-				var c = newLocalContextInstance();				
-				return jsom.removeRecentElemByTitle(c, elemTitle, literalsArray);
-			},				
+                return jsom.updateListItem(c, listTitle, itemObj, itemId);
+            },
+            recycleHostListItem: function (listTitle, itemId) {
+                /* syntax example: see updateAppListItem example */
+                var c = newRemoteContextInstance();
+                return jsom.recycleListItem(c, listTitle, itemId);
+            },
+            recycleAppListItem: function (listTitle, itemId) {
+                /* syntax example: see updateAppListItem example */
+                var c = newRemoteContextInstance();
+                return jsom.recycleListItem(c, listTitle, itemId);
+            },
+            removeHostRecentElemByTitle: function (elemTitle, literalsArray) {
+                // removes element from Host site Recent node, under QuickLaunch node. 
+                var c = newRemoteContextInstance();
+                return jsom.removeRecentElemByTitle(c, elemTitle, literalsArray);
+            },
+            removeAppRecentElemByTitle: function (elemTitle, literalsArray) {
+                // removes element from Host site Recent node, under QuickLaunch node. 
+                var c = newLocalContextInstance();
+                return jsom.removeRecentElemByTitle(c, elemTitle, literalsArray);
+            },
             createHostList: function (listObj) {
                 /* please put all list attributes and listInformation attributes in listObj. 
 					syntax example:
@@ -1551,13 +1570,13 @@
 					.then( ...... )				
 					field properties: http://msdn.microsoft.com/en-us/library/office/jj246815.aspx
 				*/
-				var c = newRemoteContextInstance();
-				return jsom.createList(c, listObj);               
+                var c = newRemoteContextInstance();
+                return jsom.createList(c, listObj);
             },
-			createAppList: function (listObj) {
-                /* syntax example: see createHostList example */					
-				var c = newLocalContextInstance();
-				return jsom.createList(c, listObj);               
+            createAppList: function (listObj) {
+                /* syntax example: see createHostList example */
+                var c = newLocalContextInstance();
+                return jsom.createList(c, listObj);
             },
             createHostSite: function (webToCreate) {
                 // NOT READY
@@ -1588,11 +1607,11 @@
             getHostListItemHasUniquePerms: function (listTitle, itemIdOrFilename) {
                 var c = newRemoteContextInstance();
                 return jsom.getListItemHasUniquePerms(c, listTitle, itemIdOrFilename);
-            },           
+            },
             getAppListItemHasUniquePerms: function (listTitle, itemIdOrFilename) {
                 var c = newLocalContextInstance();
                 return jsom.getListItemHasUniquePerms(c, listTitle, itemIdOrFilename);
-            },       
+            },
             getAllHostListsHasUniquePerms: function () {
                 var c = newRemoteContextInstance();
                 return jsom.getAllListsHasUniquePerms(c);
@@ -1612,7 +1631,7 @@
             getTestAppContext: function () {
                 var c = newLocalContextInstance();
                 c.getter = c.appContextSite;
-                c.loader = c.context;                
+                c.loader = c.context;
                 return c;
             },
             getTestHostContext: function () {
@@ -1648,8 +1667,8 @@
         },
         utils: {
             urlParamsObj: urlParamsObj,
-            buildQueryString : buildQueryString,
-            say: say,			
+            buildQueryString: buildQueryString,
+            say: say,
             getRegionalSettings: function (query) {
                 /**
              * gets the Site's Regional Settings like DateFormat,DateSeparator,LocaleId...
@@ -1659,14 +1678,26 @@
                 var url = baseUrl + "/web/RegionalSettings?" + checkQuery(query) + targetStr;
                 return getAsync(url);
             },
-            getAppUrl:function(){
+            getAppUrl: function () {
                 return appUrl;
             },
-            getHostUrl:function(){
+            getHostUrl: function () {
                 return hostUrl;
+            },
+            setAppUrl: function (param) {
+                appUrl = param;
+            },
+            setHostUrl: function (param) {
+                hostUrl = param;
+            },
+            startMyTimer: function () {
+                return performance.now();
+            },
+            getMyTimer: function (tima) {
+                return performance.now() - tima;
             }
         },
-		version : function () { say ("Hello, spyreqs ver " + spyreqs_version); }
+        version: function () { say("Hello, spyreqs ver " + spyreqs_version); }
     };
 
     // liberate scope...
