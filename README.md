@@ -391,6 +391,9 @@ spyreqs.rest.getSiteUsers(fileUrl).then(function(data){
 });
 ```
 
+
+----------------------------------------------------------------------------------------
+
 <h1>spyreqs.jsom methods</h1>
 
 <h3>spyreqs.jsom.checkHostList</h3>
@@ -518,7 +521,50 @@ spyreqs.jsom.createHostList(listObj)
 <h3>spyreqs.jsom.createAppList</h3>
 **description:** creates a List to the App Site.Parameters and return value same as spyreqs.jsom.createHostList.<br>
 
-<h2>spyreqs.utils methods</h2>
+
+<h3>spyreqs.jsom.getTestHostContext</h3>
+**description:** When you need spyreqs to have a job done with spyreqs, but there is not a method for what you need, you can use getTestHostContext and getTestAppContext for quick jsom init.<br>
+**returns:** An objects that contains jsom appContextSite and context objects
+```javascript
+
+var file, item, c, oWeb, oList;
+
+function renameHostFile(listTitle, fileItemID, newName) {
+	c = spyreqs.jsom.getTestHostContext();
+	oWeb = c.appContextSite.get_web();
+	 oList = oWeb.get_lists().getByTitle(listTitle);
+	item = oList.getItemById(fileItemID);
+	file = item.get_file();
+
+	file.checkOut();
+	c.context.load(item);  
+	c.context.load(file);  
+	c.context.executeQueryAsync(  OnLoadSuccess, fail );
+}
+
+function OnLoadSuccess(sender, args) {
+	console.log(file.get_name() + " ok");
+	
+	item.set_item("Title","oktitleokefd");
+	file.set_item("Name","okefd");
+	item.update();
+	file.checkIn();
+	
+	c.context.load(item);  
+	c.context.load(file);  
+	c.context.executeQueryAsync(  OnLoadSuccess2, fail );       
+}
+
+function fail(sender, args) {
+    console.log('Request failed. ' + args.get_message() + '\n' + args.get_stackTrace());
+}
+
+renameHostFile("GP_iSprings", 33, "renamed-ok.txt");
+```
+
+
+----------------------------------------------------------------------------------------
+<h1>spyreqs.utils methods</h1>
 
 <h3>spyreqs.utils.urlParamsObj</h3>
 **description:** gets the url parameters. <br>

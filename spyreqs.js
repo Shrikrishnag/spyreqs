@@ -4,11 +4,11 @@
         executor, baseUrl, targetStr,
 		notAnApp_FlagSum = 0,
 		say, rest, jsom, inAppMode = true,
-        spyreqs, spyreqs_version = "0.0.19";
+        spyreqs, spyreqs_version = "0.0.22";
 
     initSay();
     initSpyreqs();
-
+    //#region ----------------------------------------------------------- init  
     function initSay() {
         // init 'say' fn
         if (typeof window.console !== 'undefined') {
@@ -26,7 +26,10 @@
         queryParams = urlParamsObj();
         if (typeof queryParams.SPAppWebUrl !== 'undefined') {
             appUrl = decodeURIComponent(queryParams.SPAppWebUrl);
-            if (appUrl.indexOf('#') !== -1) { appUrl = appUrl.split('#')[0]; }
+            if (appUrl.indexOf('#') !== -1) {
+                appUrl = appUrl.split('#')[0];
+                queryParams.SPAppWebUrl = appUrl;
+            }
         } else { notAnApp_FlagSum++; }
 
         if (typeof queryParams.SPHostUrl !== 'undefined') {
@@ -137,7 +140,9 @@
             }
         }
     }
+    //#endregion ----------------------------------------------------------- init  
 
+    //#region ----------------------------------------------------------- async
     function postAsync(url) {
         var defer = new $.Deferred();
 
@@ -169,6 +174,9 @@
             },
             fail: function (error) {
                 defer.reject(error);
+            },
+            error: function (error) {
+                defer.reject(error);
             }
         });
 
@@ -183,7 +191,8 @@
             success: function (data) {
                 defer.resolve(data.body);
             },
-            fail: function (error) { defer.reject(error); }
+            fail: function (error) { defer.reject(error); },
+            error: function (error) { defer.reject(error); }
         });
         return defer.promise();
     }
@@ -203,6 +212,9 @@
                 defer.resolve(JSON.parse(data.body));
             },
             fail: function (error) {
+                defer.reject(error);
+            },
+            error: function (error) {
                 defer.reject(error);
             }
         });
@@ -226,6 +238,9 @@
             },
             fail: function (error) {
                 defer.reject(error);
+            },
+            error: function (error) {
+                defer.reject(error);
             }
         });
         return defer.promise();
@@ -247,6 +262,9 @@
                 defer.resolve(data);
             },
             fail: function (error) {
+                defer.reject(error);
+            },
+            error: function (error) {
                 defer.reject(error);
             }
         });
@@ -272,6 +290,9 @@
             },
             fail: function (error) {
                 defer.reject(error);
+            },
+            error: function (error) {
+                defer.reject(error);
             }
         });
         return defer.promise();
@@ -293,10 +314,15 @@
             },
             fail: function (error) {
                 defer.reject(error);
+            },
+            error: function (error) {
+                say("ajax error:" + error.statusText);
+                defer.reject(error);
             }
         });
         return defer.promise();
     }
+    //#endregion ----------------------------------------------------------- async
 
     function checkQuery(query) {
         /**
@@ -402,6 +428,7 @@
         return obj;
     }
 
+    //#region ----------------------------------------------------------- private (not exposed) 
     /**
      * the rest and jsom objects have methods that are мот exposed 
 	 * and are used only by the spyreqs.rest / spyreqs.jsom methods
@@ -998,6 +1025,27 @@
 
             return defer.promise();
         },
+        getCurrentUser: function(c){
+            var defer = new $.Deferred();
+            user = c.context.get_web().get_currentUser();
+            c.context.load(user);
+            c.context.executeQueryAsync(success, fail);
+
+            function success(){
+                defer.resolve(user);
+            }
+            
+            function fail(sender, args) {
+                var error = {
+                    sender: sender,
+                    args: args
+                };
+                defer.reject(error);
+            }
+
+            return defer.promise();
+
+        },
         getWebProperty: function (c, propName) {
             var web, properties, val, defer = new $.Deferred();
 
@@ -1122,8 +1170,10 @@
             return defer.promise();
         }
     };
+    //#endregion ----------------------------------------------------------- private (not exposed)  
 
     spyreqs = {
+        //#region ----------------------------------------------------------- spyreqs.rest
         rest: {
             getHostLists: function (query) {
                 /**
@@ -1437,6 +1487,8 @@
             postAsync: postAsync,
             getAsync: getAsync
         },
+        //#endregion ----------------------------------------------------------- spyreqs.rest
+        //#region ----------------------------------------------------------- spyreqs.jsom
         jsom: {
             checkHostList: function (listTitle) {
                 // This function checks if list.Title exists.
@@ -1457,6 +1509,10 @@
                 // if SP.ClientContext is not loaded, c will be null. 
                 // But, send the promise and let disolve there
                 return jsom.checkList(c, listTitle);
+            },
+            getCurrentUser: function(){
+                var c = newLocalContextInstance();
+                return jsom.getCurrentUser(c);
             },
             getHostList: function (listTitle) {
                 var c = newRemoteContextInstance();
@@ -1676,8 +1732,10 @@
             createHostFile: function (doclib, fname, body, overwriteBool) {
                 var c = newRemoteContextInstance();
                 return jsom.createFile(c, doclib, fname, body, overwriteBool);
-            }
+            }            
         },
+        //#endregion ----------------------------------------------------------- spyreqs.jsom
+        //#region ----------------------------------------------------------- spyreqs.utils
         utils: {
             urlParamsObj: urlParamsObj,
             buildQueryString: buildQueryString,
@@ -1690,6 +1748,9 @@
              */
                 var url = baseUrl + "/web/RegionalSettings?" + checkQuery(query) + targetStr;
                 return getAsync(url);
+            },
+            getQueryParams: function (){
+                return queryParams;
             },
             getAppUrl: function () {
                 return appUrl;
@@ -1710,6 +1771,7 @@
                 return performance.now() - tima;
             }
         },
+        //#endregion ----------------------------------------------------------- spyreqs.utils
         version: function () { say("Hello, spyreqs ver " + spyreqs_version); }
     };
 
