@@ -3,8 +3,12 @@
     var appUrl, hostUrl, queryParams,
         executor, baseUrl, targetStr,
 		notAnApp_FlagSum = 0,
+        webPropertiesStorage = {
+            "appWebProperties": { isUnloaded: true },
+            "hostWebProperties": { isUnloaded: true },
+        },
 		say, rest, jsom, inAppMode = true,
-        spyreqs, spyreqs_version = "0.0.22";
+        spyreqs, spyreqs_version = "0.0.26";
 
     initSay();
     initSpyreqs();
@@ -22,38 +26,57 @@
 
     function initSpyreqs() {
         // init spyreqs, check if it runs for a Sharepoint App or a solution
-        var initTimer, isReady = false;
+        var initTimer, isReady = false, initModeMsg = "",
+            windowDefaultRepo = window.localStorage;
         queryParams = urlParamsObj();
+
         if (typeof queryParams.SPAppWebUrl !== 'undefined') {
             appUrl = decodeURIComponent(queryParams.SPAppWebUrl);
             if (appUrl.indexOf('#') !== -1) {
                 appUrl = appUrl.split('#')[0];
-                queryParams.SPAppWebUrl = appUrl;
             }
+        } else if (windowDefaultRepo.spyreqsAppUrl) {
+            // spyreqs has discover the param before in this session
+            appUrl = windowDefaultRepo.spyreqsAppUrl;
+            initModeMsg = "storage";
         } else { notAnApp_FlagSum++; }
 
         if (typeof queryParams.SPHostUrl !== 'undefined') {
             hostUrl = decodeURIComponent(queryParams.SPHostUrl);
             // for rest use
-            targetStr = "&@target='" + hostUrl + "'";
-            baseUrl = appUrl + "/_api/SP.AppContextSite(@target)/";
-            executor = new SP.RequestExecutor(appUrl);
+            prepRest();
+        } else if (windowDefaultRepo.spyreqsHostUrl) {
+            // spyreqs has discover the param before in this session
+            hostUrl = windowDefaultRepo.spyreqsHostUrl;
+            initModeMsg = "storage";
+            // for rest use
+            prepRest();
         } else { notAnApp_FlagSum++; }
 
         if (notAnApp_FlagSum != 0) {
-            // spyreqs did not find SPHostUrl or SPAppWebUrl or neither in url query params
+            // spyreqs did not find SPHostUrl or SPAppWebUrl or neither in url query params or in windowDefaultRepo
             // will try to discover on its own in case we are still running in an app
             if (discoverIfApp(window.location.host)) {
                 // spyreqs assumes it runs in an app without the proper params, now tries to build app&host Url                
                 appUrl = decodeURIComponent(tryBuildAppUrl());
                 hostUrl = decodeURIComponent(tryBuildHostUrlFromAppUrl(appUrl));
-                targetStr = "&@target='" + hostUrl + "'";
-                baseUrl = appUrl + "/_api/SP.AppContextSite(@target)/";
-                executor = new SP.RequestExecutor(appUrl);
-                say("spyreqs init mode: app-auto");
+                prepRest();
+                initModeMsg = "app - auto discover";
                 say("spyreqs assumed: appUrl: " + appUrl + " - hostUrl:" + hostUrl);
             } else { iAmNotInApp(); }
-        } else { say("spyreqs init mode: app"); }
+        } else { if (initModeMsg == "") initModeMsg = "app"; }
+
+        say("spyreqs init mode: " + initModeMsg);
+        // appUrl && hostUrl are found, keep them in the windowDefaultRepo in case some page does not have them in its urlQuery params
+        windowDefaultRepo.spyreqsAppUrl = appUrl;
+        windowDefaultRepo.spyreqsHostUrl = hostUrl;
+        // windowDefaultRepo is very usefull if a custom action on some item opens the app with no SPHostUrl & SPAppWebUrl params
+
+        function prepRest() {
+            targetStr = "&@target='" + hostUrl + "'";
+            baseUrl = appUrl + "/_api/SP.AppContextSite(@target)/";
+            executor = new SP.RequestExecutor(appUrl);
+        }
 
         function tryBuildHostUrlFromAppUrl(appUrl) {
             // remove app website
@@ -86,8 +109,9 @@
         function iAmNotInApp() {
             // this is not an app, so assing the proper web url to both vars
             // to do... spyreqs is not ready yet since it has to load some js, but may be called and cause exception
-            // spyreqs thinks this is not a sharepoint app, since url params 'SPHostUrl' or 'SPAppWebUrl' or both are missing
-            say("spyreqs init mode: no-app");
+            // spyreqs thinks this is not a sharepoint app, since url params 'SPHostUrl' or 'SPAppWebUrl' 
+            // or both are missing, AND there is no hash code in the domain
+            initModeMsg = "no app";
             inAppMode = false;
             var url = window.location.href;
             appUrl = hostUrl = url.substring(0, url.indexOf('/Pages'));
@@ -627,6 +651,30 @@
 
             return defer.promise();
         },
+        getListFields: function (c, listTitle) {
+            var web, theList, listFields, defer = new $.Deferred();
+
+            web = c.appContextSite.get_web();
+            theList = web.get_lists().getByTitle(listTitle);
+            listFields = theList.get_fields();
+            c.context.load(theList);
+            c.context.load(listFields);
+            c.context.executeQueryAsync(success, fail);
+
+            function success() {
+                defer.resolve(listFields);
+            }
+
+            function fail(sender, args) {
+                var error = {
+                    sender: sender,
+                    args: args
+                };
+                defer.reject(error);
+            }
+
+            return defer.promise();
+        },
         getItems: function (c, listTitle, query) {
             var web, theList, resultCollection, defer = new $.Deferred();
 
@@ -839,6 +887,39 @@
 
             return defer.promise();
         },
+        getLists: function (c, columns) {
+            var web, lists, columnArg, defer = $.Deferred();
+
+            web = c.appContextSite.get_web();
+            lists = web.get_lists();
+
+            if (typeof columns === 'string') {
+                columnArg = "Include(" + columns + ")";
+            } else if (Array.isArray(columns)) {
+                columnArg = "Include(" + columns.join() + ")";
+            }
+
+            if (columnArg) {
+                c.context.load(lists, columnArg);
+            } else {
+                c.context.load(lists);
+            }
+
+            c.context.executeQueryAsync(success, fail);
+
+            function success() {
+                defer.resolve(lists);
+            }
+
+            function fail(sender, args) {
+                var error = {
+                    sender: sender,
+                    args: args
+                };
+                defer.reject(error);
+            }
+            return defer.promise();
+        },
         deleteList: function (c, listTitle) {
             var web, theList, defer = new $.Deferred();
 
@@ -1025,16 +1106,16 @@
 
             return defer.promise();
         },
-        getCurrentUser: function(c){
+        getCurrentUser: function (c) {
             var defer = new $.Deferred();
             user = c.context.get_web().get_currentUser();
             c.context.load(user);
             c.context.executeQueryAsync(success, fail);
 
-            function success(){
+            function success() {
                 defer.resolve(user);
             }
-            
+
             function fail(sender, args) {
                 var error = {
                     sender: sender,
@@ -1046,7 +1127,7 @@
             return defer.promise();
 
         },
-        getWebProperty: function (c, propName) {
+        getWebProperty: function (c, propName, storageObjName) {
             var web, properties, val, defer = new $.Deferred();
 
             web = c.appContextSite.get_web();
@@ -1057,7 +1138,11 @@
             c.context.executeQueryAsync(success, fail);
 
             function success() {
-                var val = properties.get_fieldValues()[propName];
+                // store SP object in spyreqs
+                // this will also overwite the 'isUnloaded' property
+                webPropertiesStorage[storageObjName] = properties.get_fieldValues();
+                // get the asked value
+                var val = webPropertiesStorage[storageObjName][propName];
                 defer.resolve(val);
             }
 
@@ -1071,7 +1156,7 @@
 
             return defer.promise();
         },
-        setWebProperty: function (c, propName, val) {
+        setWebProperty: function (c, propName, val, storageObjName) {
             var web, properties, defer = new $.Deferred();
 
             web = c.appContextSite.get_web();
@@ -1079,6 +1164,31 @@
             properties.set_item(propName, val);
             web.update();
             c.context.load(web);
+            c.context.executeQueryAsync(success, fail);
+
+            function success(obj) {
+                webPropertiesStorage[storageObjName][propName] = val;
+                defer.resolve(obj);
+            }
+
+            function fail(sender, args) {
+                var error = {
+                    sender: sender,
+                    args: args
+                };
+                defer.reject(error);
+            }
+
+            return defer.promise();
+        },
+        deleteFile: function (c, fileServerRelativeUrl) {
+            // Please note: if file is not found, success will still be invoked
+            var web, file, defer = new $.Deferred();
+
+            web = c.appContextSite.get_web();
+            file = web.getFileByServerRelativeUrl(fileServerRelativeUrl);
+            c.context.load(web);
+            file.deleteObject();
             c.context.executeQueryAsync(success, fail);
 
             function success(obj) {
@@ -1280,11 +1390,11 @@
                  * @param  {object} item      [the item to update. Must have the properties Id and __metadata]       
                  * var item = {
                  *   "__metadata": {
-                 *       type: "SP.Data.DemodemoListItem",//prepei na breis gia th lista to sygkekrimeno type
+                 *       type: "SP.Data.DemodemoListItem",
                  *       etag:""//optional
                  *   },
-                 *   Id:".."//guid ypoxrewtiko
-                 *   //ola ta columns pou 8es na allakseis
+                 *   Id:".."//guid is mandatory
+                 *   //all columns you want to update
                  *   Title: "item",
                  *   NotEditable:"edited"
                 * };
@@ -1355,6 +1465,14 @@
             },
             getHostFolderFolders: function (folderName) {
                 var url = baseUrl + "web/GetFolderByServerRelativeUrl('" + folderName + "')/Folders?" + targetStr;
+                return getAsync(url);
+            },
+            getAppFolderFiles: function (folderName) {
+                var url = appUrl + "/_api/web/GetFolderByServerRelativeUrl('" + folderName + "')/Files?";
+                return getAsync(url);
+            },
+            getAppFolderFolders: function (folderName) {
+                var url = appUrl + "/_api/web/GetFolderByServerRelativeUrl('" + folderName + "')/Folders?";
                 return getAsync(url);
             },
             addHostFolder: function (documentLibrary, folderName) {
@@ -1510,7 +1628,7 @@
                 // But, send the promise and let disolve there
                 return jsom.checkList(c, listTitle);
             },
-            getCurrentUser: function(){
+            getCurrentUser: function () {
                 var c = newLocalContextInstance();
                 return jsom.getCurrentUser(c);
             },
@@ -1521,6 +1639,14 @@
             getAppList: function (listTitle) {
                 var c = newLocalContextInstance();
                 return jsom.getList(c, listTitle);
+            },
+            getAppLists: function (columns) {
+                var c = newLocalContextInstance();
+                return jsom.getLists(c, columns);
+            },
+            getHostLists: function (columns) {
+                var c = newRemoteContextInstance();
+                return jsom.getLists(c, columns);
             },
             deleteHostList: function (listTitle) {
                 var c = newRemoteContextInstance();
@@ -1544,8 +1670,17 @@
             },
             getHostListPermissions: function (listTitle, userName) {
                 // only works with full control on host web
-                var c = newLocalContextInstance();
+                say("CAUTION, spyreqs says: getHostListPermissions only works with full control on host web");
+                var c = newRemoteContextInstance();
                 return jsom.getListPermissions(c, listTitle, userName);
+            },
+            getAppListFields: function (listTitle) {
+                var c = newLocalContextInstance();
+                return jsom.getListFields(c, listTitle);
+            },
+            getHostListFields: function (listTitle) {
+                var c = newRemoteContextInstance();
+                return jsom.getListFields(c, listTitle);
             },
             getHostListItems: function (listTitle, query) {
                 /* Example syntax:								
@@ -1606,7 +1741,7 @@
             },
             recycleAppListItem: function (listTitle, itemId) {
                 /* syntax example: see updateAppListItem example */
-                var c = newRemoteContextInstance();
+                var c = newLocalContextInstance();
                 return jsom.recycleListItem(c, listTitle, itemId);
             },
             removeHostRecentElemByTitle: function (elemTitle, literalsArray) {
@@ -1693,6 +1828,122 @@
                 var c = newRemoteContextInstance();
                 return jsom.getListHasUniquePerms(c, listTitle);
             },
+            addUserToRoleTypeInAppWeb: function (userOrUserId, SPRoleType) {
+                var
+                    deferred = $.Deferred(),
+                    c = new newLocalContextInstance(),
+                    context = c.appContextSite,
+                    web = context.get_web(),
+                    assignments = web.get_roleAssignments(),
+                    roleAssignments,
+                    user, roleTypeDefinition,
+                    //create a new RoleDefinitionBindingCollection
+                    newBindings = SP.RoleDefinitionBindingCollection.newObject(context)
+                ;
+
+                if (userOrUserId instanceof SP.User) {
+                    userOrUserId = userOrUserId.get_id();
+                }
+                user = web.getUserById(userOrUserId);
+
+                //get the user from the web so as to be in the same context
+                roleTypeDefinition = web.get_roleDefinitions().getByType(SPRoleType);
+
+                //add the roleType
+                newBindings.add(roleTypeDefinition);
+                roleAssignments = assignments.add(user, newBindings);
+
+                context.executeQueryAsync(
+                    function () {
+                        deferred.resolve(true);
+
+                    }, function (sender, args) {
+                        var error = { sender: sender, args: args };
+                        deferred.reject(error);
+                    });
+
+                return deferred.promise();
+            },
+            addUserToRoleTypeInAppList: function (userOrUserId, SPRoleType, listTitle) {
+                // add userId to SPRoleType ( inherit for ListTitle	must be broke already )	 
+                var
+                    deferred = $.Deferred(),
+                    c = new newLocalContextInstance(),
+                    context = c.appContextSite,
+                    web = context.get_web(),
+                    //get the list
+                    SPListObj = web.get_lists().getByTitle(listTitle),
+                    // Get the RoleAssignmentCollection for the target list
+                    assignments = SPListObj.get_roleAssignments(),
+                    user,
+                    roleTypeDefinition,
+                    roleAssignment,
+                    newBindings = SP.RoleDefinitionBindingCollection.newObject(context)
+                ;
+
+                if (userOrUserId instanceof SP.User) {
+                    userOrUserId = userOrUserId.get_id();
+                }
+
+                user = web.getUserById(userOrUserId);
+                roleTypeDefinition = web.get_roleDefinitions().getByType(SPRoleType);
+
+                // Add the role to the collection
+                newBindings.add(roleTypeDefinition);
+
+                // Add the user to the target list and assign the use to the new RoleDefinitionBindingCollection
+                roleAssignment = assignments.add(user, newBindings);
+
+                context.executeQueryAsync(
+                    function () {
+                        deferred.resolve(true);
+                    },
+                    function (sender, args) {
+                        var error = { sender: sender, args: args };
+                        deferred.reject(error);
+                    }
+                );
+                return deferred.promise();
+            },
+            addUserToRoleTypeInAppListItem: function (userOrUserId, SPRoleType, listTitle, itemId) {
+                var
+                    deferred = $.Deferred(),
+                    c = new newLocalContextInstance(),
+                    context = c.appContextSite,
+                    web = context.get_web(),
+                    // Get the RoleAssignmentCollection for the target list
+                    SPListItemObj = web.get_lists().getByTitle(listTitle).getItemById(itemId),
+                    assignments = SPListItemObj.get_roleAssignments(),
+                    roleAssignment, user,
+                    roleDefOfRoleType = web.get_roleDefinitions().getByType(SPRoleType),
+                    // Create a new RoleDefinitionBindingCollection
+                    newBindings = SP.RoleDefinitionBindingCollection.newObject(context);
+
+                // Add the role to the collection
+                newBindings.add(roleDefOfRoleType);
+
+                if (userOrUserId instanceof SP.User) {
+                    userOrUserId = userOrUserId.get_id();
+                }
+
+                user = web.getUserById(userId);
+
+                // Add the user to the target list and assign the use to the new RoleDefinitionBindingCollection
+                roleAssignment = assignments.add(user, newBindings);
+
+                context.executeQueryAsync(
+                    function () {
+                        deferred.resolve(true);
+                    },
+                    function (sender, args) {
+                        var error = { sender: sender, args: args };
+                        deferred.reject(error);
+                    }
+                );
+
+                return deferred.promise();
+
+            },
             getAppListHasUniquePerms: function (listTitle) {
                 var c = newLocalContextInstance();
                 return jsom.getListHasUniquePerms(c, listTitle);
@@ -1710,20 +1961,32 @@
                 return c;
             },
             getHostProperty: function (propName) {
-                var c = newRemoteContextInstance();
-                return jsom.getWebProperty(c, propName);
+                if (webPropertiesStorage["hostWebProperties"].isUnloaded) {
+                    var c = newRemoteContextInstance();
+                    return jsom.getWebProperty(c, propName, "hostWebProperties");
+                } else {
+                    // get the val from the stored obj and resolve the promise at once
+                    var val = webPropertiesStorage["hostWebProperties"][propName];
+                    return new $.Deferred().resolve(val).promise();
+                }
             },
             getAppProperty: function (propName) {
-                var c = newLocalContextInstance();
-                return jsom.getWebProperty(c, propName);
+                if (webPropertiesStorage["appWebProperties"].isUnloaded) {
+                    var c = newLocalContextInstance();
+                    return jsom.getWebProperty(c, propName, "appWebProperties");
+                } else {
+                    // get the val from the stored obj and resolve the promise at once
+                    var val = webPropertiesStorage["appWebProperties"][propName];
+                    return new $.Deferred().resolve(val).promise();
+                }
             },
             setHostProperty: function (propName, val) {
                 var c = newRemoteContextInstance();
-                return jsom.setWebProperty(c, propName, val);
+                return jsom.setWebProperty(c, propName, val, "hostWebProperties");
             },
             setAppProperty: function (propName, val) {
                 var c = newLocalContextInstance();
-                return jsom.setWebProperty(c, propName, val);
+                return jsom.setWebProperty(c, propName, val, "appWebProperties");
             },
             createAppFile: function (doclib, fname, body, overwriteBool) {
                 var c = newLocalContextInstance();
@@ -1732,7 +1995,15 @@
             createHostFile: function (doclib, fname, body, overwriteBool) {
                 var c = newRemoteContextInstance();
                 return jsom.createFile(c, doclib, fname, body, overwriteBool);
-            }            
+            },
+            deleteAppFile: function (fileServerRelativeUrl) {
+                var c = newLocalContextInstance();
+                return jsom.deleteFile(c, fileServerRelativeUrl);
+            },
+            deleteHostFile: function (fileServerRelativeUrl) {
+                var c = newRemoteContextInstance();
+                return jsom.deleteFile(c, fileServerRelativeUrl);
+            }
         },
         //#endregion ----------------------------------------------------------- spyreqs.jsom
         //#region ----------------------------------------------------------- spyreqs.utils
@@ -1749,7 +2020,7 @@
                 var url = baseUrl + "/web/RegionalSettings?" + checkQuery(query) + targetStr;
                 return getAsync(url);
             },
-            getQueryParams: function (){
+            getQueryParams: function () {
                 return queryParams;
             },
             getAppUrl: function () {
