@@ -2,17 +2,26 @@
     "use strict";
     var appUrl, hostUrl, queryParams,
         executor, baseUrl, targetStr,
-		notAnApp_FlagSum = 0,
+        notAnApp_FlagSum = 0,
         webPropertiesStorage = {
             "appWebProperties": { isUnloaded: true },
             "hostWebProperties": { isUnloaded: true },
         },
-		say, rest, jsom, inAppMode = true,
-        spyreqs, spyreqs_version = "0.0.26";
+        say, rest, jsom, inAppMode = true,
+        spyreqs, spyreqs_version = "0.0.28";
+
+    if (!(window.performance)){
+        window.performance = {};
+    }
+    if (!(window.performance.now)) {
+        window.performance.now = function () {
+            return Date.now();
+        }
+    }
 
     initSay();
     initSpyreqs();
-    //#region ----------------------------------------------------------- init  
+    //#region ----------------------------------------------------------- init
     function initSay() {
         // init 'say' fn
         if (typeof window.console !== 'undefined') {
@@ -57,7 +66,7 @@
             // spyreqs did not find SPHostUrl or SPAppWebUrl or neither in url query params or in windowDefaultRepo
             // will try to discover on its own in case we are still running in an app
             if (discoverIfApp(window.location.host)) {
-                // spyreqs assumes it runs in an app without the proper params, now tries to build app&host Url                
+                // spyreqs assumes it runs in an app without the proper params, now tries to build app&host Url
                 appUrl = decodeURIComponent(tryBuildAppUrl());
                 hostUrl = decodeURIComponent(tryBuildHostUrlFromAppUrl(appUrl));
                 prepRest();
@@ -67,10 +76,12 @@
         } else { if (initModeMsg == "") initModeMsg = "app"; }
 
         say("spyreqs init mode: " + initModeMsg);
-        // appUrl && hostUrl are found, keep them in the windowDefaultRepo in case some page does not have them in its urlQuery params
-        windowDefaultRepo.spyreqsAppUrl = appUrl;
-        windowDefaultRepo.spyreqsHostUrl = hostUrl;
-        // windowDefaultRepo is very usefull if a custom action on some item opens the app with no SPHostUrl & SPAppWebUrl params
+		if (initModeMsg != "no app") {
+			// appUrl && hostUrl are found, keep them in the windowDefaultRepo in case some page does not have them in its urlQuery params
+			windowDefaultRepo.spyreqsAppUrl = appUrl;
+			windowDefaultRepo.spyreqsHostUrl = hostUrl;
+			// windowDefaultRepo is very usefull if a custom action on some item opens the app with no SPHostUrl & SPAppWebUrl params
+		}
 
         function prepRest() {
             targetStr = "&@target='" + hostUrl + "'";
@@ -109,7 +120,7 @@
         function iAmNotInApp() {
             // this is not an app, so assing the proper web url to both vars
             // to do... spyreqs is not ready yet since it has to load some js, but may be called and cause exception
-            // spyreqs thinks this is not a sharepoint app, since url params 'SPHostUrl' or 'SPAppWebUrl' 
+            // spyreqs thinks this is not a sharepoint app, since url params 'SPHostUrl' or 'SPAppWebUrl'
             // or both are missing, AND there is no hash code in the domain
             initModeMsg = "no app";
             inAppMode = false;
@@ -129,7 +140,7 @@
             .fail(function (script, textStatus) {
                 say('could not load: RequestExecutor.js');
             });
-            // load sp.js for jsom use if not already loadad            
+            // load sp.js for jsom use if not already loadad
             if (!SP.ClientContext) {
                 say("spyreqs is waiting for sp.js");
                 initTimer = setInterval(testReady, 500);
@@ -150,21 +161,21 @@
         function testReady() {
             if (!isReady) {
                 SP.SOD.executeFunc('sp.js', 'SP.ClientContext.get_current',
-					function () {
-					    say('loaded: sp.js');
-					    if (!isReady) {
-					        if (typeof window.onSpyreqsReady == 'function') window.onSpyreqsReady();
-					        isReady = true;
-					    }
-					    clearInterval(initTimer);
-					}
-				);
+                    function () {
+                        say('loaded: sp.js');
+                        if (!isReady) {
+                            if (typeof window.onSpyreqsReady == 'function') window.onSpyreqsReady();
+                            isReady = true;
+                        }
+                        clearInterval(initTimer);
+                    }
+                );
             } else {
                 clearInterval(initTimer);
             }
         }
     }
-    //#endregion ----------------------------------------------------------- init  
+    //#endregion ----------------------------------------------------------- init
 
     //#region ----------------------------------------------------------- async
     function postAsync(url) {
@@ -378,7 +389,7 @@
     }
 
     function newLocalContextInstance() {
-        // for jsom use. Return an object with new instances for clear async requests        
+        // for jsom use. Return an object with new instances for clear async requests
         var returnObj = {}, context, appContextSite;
         if (!SP.ClientContext) {
             say("SP.ClientContext was not loaded, loading now. Please try again");
@@ -452,10 +463,10 @@
         return obj;
     }
 
-    //#region ----------------------------------------------------------- private (not exposed) 
+    //#region ----------------------------------------------------------- private (not exposed)
     /**
-     * the rest and jsom objects have methods that are мот exposed 
-	 * and are used only by the spyreqs.rest / spyreqs.jsom methods
+     * the rest and jsom objects have methods that are мот exposed
+     * and are used only by the spyreqs.rest / spyreqs.jsom methods
      */
     rest = {
         createList: function (url, list) {
@@ -536,23 +547,23 @@
         },
         createList: function (c, listObj) {
             var web, theList, listCreationInfo, template, field, defer = new $.Deferred(), val_temp, fn_temp, isValidAttrBool,
-				lciAttrs = [
-					"url", "description", "documentTemplateType",
-					"customSchemaXml", "dataSourceProperties",
-					"quickLaunchOption", "templateFeatureId"
-				],
-				listAttrs = [
-					"contentTypesEnabled", "defaultContentApprovalWorkflowId",
-					"defaultDisplayFormUrl", "defaultEditFormUrl",
-					"defaultNewFormUrl", "documentTemplateUrl",
-					"draftVersionVisibility", "enableAttachments",
-					"enableFolderCreation", "enableMinorVersions",
-					"enableModeration", "enableVersioning",
-					"forceCheckout", "hidden", "isApplicationList",
-					"isSiteAssetsLibrary", "multipleDataList",
-					"noCrawl", "onQuickLaunch", "validationFormula",
-					"validationMessage", "direction"
-				];
+                lciAttrs = [
+                    "url", "description", "documentTemplateType",
+                    "customSchemaXml", "dataSourceProperties",
+                    "quickLaunchOption", "templateFeatureId"
+                ],
+                listAttrs = [
+                    "contentTypesEnabled", "defaultContentApprovalWorkflowId",
+                    "defaultDisplayFormUrl", "defaultEditFormUrl",
+                    "defaultNewFormUrl", "documentTemplateUrl",
+                    "draftVersionVisibility", "enableAttachments",
+                    "enableFolderCreation", "enableMinorVersions",
+                    "enableModeration", "enableVersioning",
+                    "forceCheckout", "hidden", "isApplicationList",
+                    "isSiteAssetsLibrary", "multipleDataList",
+                    "noCrawl", "onQuickLaunch", "validationFormula",
+                    "validationMessage", "direction"
+                ];
 
             web = c.appContextSite.get_web();
             listCreationInfo = new SP.ListCreationInformation();
@@ -577,7 +588,7 @@
             }
             listCreationInfo.set_templateType(template);
 
-            // set any other attribute of listCreationInformation from listObject	
+            // set any other attribute of listCreationInformation from listObject
             for (var attr in listObj) {
                 val_temp = listObj[attr];
                 fn_temp = "set_" + attr;
@@ -587,7 +598,7 @@
             }
             theList = web.get_lists().add(listCreationInfo);
 
-            // set any other attribute of list from listObject	
+            // set any other attribute of list from listObject
             for (var attr in listObj) {
                 val_temp = listObj[attr];
                 fn_temp = "set_" + attr;
@@ -605,14 +616,14 @@
                 if (listObj.fields) {
                     // start creating fields
                     $.when(jsom.createListFields(c.context, theList, listObj.fields)).then(
-						function (data) {
-						    // create List Fields finished
-						    defer.resolve(listObj);
-						},
-						function (error) {
-						    defer.reject(error);
-						}
-					);
+                        function (data) {
+                            // create List Fields finished
+                            defer.resolve(listObj);
+                        },
+                        function (error) {
+                            defer.reject(error);
+                        }
+                    );
                 } else {
                     // no fields to create
                     defer.resolve(listObj);
@@ -700,6 +711,194 @@
 
             return defer.promise();
         },
+        /**
+         * retrieves the items matched by the query and then applies the callback
+         * funcion to each one of them  in Pages
+         * @param  {Object} c
+         * @param  {String} listTitle
+         * @param  {String} query
+         * @param  {Object} data
+         * @param  {Number} perPage
+         * @param  {Function} callBack
+         * @return {Object} a jQuery.Deferred objrct
+         */
+        handleItemsPaginated: function(c, listTitle, query, data, perPage, callBack) {
+            var deferred = new $.Deferred(),
+                that = this,
+                perPage = (!perPage) ? 50 : perPage,
+                updatedItems = 0,
+                items = [];
+
+            /**
+             * @param  {Object} c
+             * @param  {String} listTitle
+             * @param  {Number} query
+             * @param  {Number} perPage
+             * @return {Object} a jQuery.Deferred object
+             */
+            function _fillItems(c, listTitle, query, perPage) {
+                var page = 1,
+                    itemsDeferred = new $.Deferred();
+
+                /**
+                 * @param  {Object} c
+                 * @param  {String} listTitle
+                 * @param  {String} query
+                 * @param  {Object} paginginfo
+                 * @param  {Number} perPage
+                 * @param  {Number} page
+                 * @return {Object} a jQuery.Deferred object
+                 */
+                function _getItems(c, listTitle, query, paginginfo, perPage, page) {
+                    that.getItemsPaginated(c, listTitle, query, paginginfo, page, perPage)
+                        .then(function (paginationResults) {
+                            var tempItems = paginationResults.items.get_data();
+                            items = items.concat(tempItems);
+                            if (paginationResults.nextPage === true) {
+                                page++;
+                                _getItems(c, listTitle, query, paginationResults.nextPagingInfo, perPage, page);
+                            } else {
+                                itemsDeferred.resolve();
+                            }
+                        }, function (error) {
+                            itemsDeferred.reject(error);
+                        });
+                }
+                _getItems(c, listTitle, query, null, perPage, page);
+                return itemsDeferred.promise();
+            }
+
+            /**
+             * @param  {Object} c
+             * @param  {Object} data
+             * @param  {Number} perPage
+             * @param  {Function} callBack
+             */
+            function _handleItems(c, data, perPage, callBack) {
+                var tempItems = items.splice(0, perPage),
+                    dirtyPage = false;
+
+                if (tempItems.length > 0) {
+                    say('spliced ' + tempItems.length + " items, remaining " + items.length);
+                    tempItems.forEach(function (item) {
+                        if (callBack(item, data)) {
+                            updatedItems += 1;
+                            if (!dirtyPage) {
+                                dirtyPage = true;
+                            }
+                        }
+                    });
+
+                    if (dirtyPage) {
+                        c.context.executeQueryAsync(function () {
+                            _handleItems(c, data, perPage, callBack);
+                        }, function (sender, args) {
+                            deferred.reject({
+                                sender: sender,
+                                args: args
+                            });
+                        });
+                    } else {
+                        _handleItems(c, data, perPage, callBack);
+                    }
+                } else {
+                    deferred.resolve({
+                        updatedItems: updatedItems
+                    });
+                }
+            }
+
+            _fillItems(c, listTitle, query, perPage)
+                .then(function () {
+                    _handleItems(c, data, perPage, callBack)
+                }, function (error) {
+                    deferred.reject(error);
+                });
+            return deferred.promise();
+        },
+        /**
+         * @param  {Object} c
+         * @param  {String} listTitle
+         * @param  {String} query
+         * @param  {Object} pagingInfo
+         * @param  {Number} page
+         * @param  {Number} perPage
+         * @return {Object} a jQuery.Deferred object
+         */
+        getItemsPaginated: function(c, listTitle, query, pagingInfo, page, perPage){
+            var
+                web,
+                theList,
+                camlQuery = new SP.CamlQuery(),
+                defer = new $.Deferred(),
+                nextPagingInfo,
+                previousPagingInfo,
+                resultsCollection,
+                position = null
+            ;
+
+            if(!page){
+                page = 1;
+            }
+
+            if (!perPage) {
+                perPage = 10;
+            }
+
+            web = c.appContextSite.get_web();
+            theList = web.get_lists().getByTitle(listTitle);
+
+            if (!query) {
+                query = '<View><RowLimit>' + perPage + '</RowLimit></View>';
+            } else {
+                query = query.replace('</View>', '<RowLimit>' + perPage + '</RowLimit></View>');
+            }
+
+            if(pagingInfo){
+                position = new SP.ListItemCollectionPosition();
+                position.set_pagingInfo(pagingInfo);
+            }
+
+            camlQuery.set_listItemCollectionPosition(position);
+            camlQuery.set_viewXml(query);
+            resultsCollection = theList.getItems(camlQuery);
+
+            c.context.load(resultsCollection);
+            c.context.executeQueryAsync(success, fail);
+
+            function success(){
+                if (resultsCollection.get_listItemCollectionPosition()) {
+                    nextPagingInfo = resultsCollection.get_listItemCollectionPosition().get_pagingInfo();
+                } else {
+                    nextPagingInfo = null;
+                }
+                if(page > 1) {
+                    previousPagingInfo = "PagedPrev=TRUE&Paged=TRUE&p_ID=" + resultsCollection.itemAt(0).get_item('ID');
+                } else {
+                    previousPagingInfo = null;
+                }
+
+                defer.resolve({
+                    startItem: ((page - 1) * perPage + 1),
+                    endItem: ((page * perPage) - (perPage - resultsCollection.get_count())),
+                    prevPage: (page > 1 ? true : false),
+                    previousPagingInfo: previousPagingInfo,
+                    nextPage: (nextPagingInfo ? true : false),
+                    nextPagingInfo: nextPagingInfo,
+                    items: resultsCollection
+                });
+            }
+
+            function fail(sender, args) {
+                var error = {
+                    sender: sender,
+                    args: args
+                };
+                defer.reject(error);
+            }
+
+            return defer.promise();
+        },
         updateListItem: function (c, listTitle, itemObj, itemId) {
             var web, theList, theListItem, prop, itemId, itemCreateInfo, defer = new $.Deferred();
 
@@ -767,8 +966,8 @@
 
             function success() {
                 var listInfo = '',
-					answerBool = false,
-					listEnumerator = collectionList.getEnumerator();
+                    answerBool = false,
+                    listEnumerator = collectionList.getEnumerator();
 
                 while (listEnumerator.moveNext()) {
                     var oList = listEnumerator.get_current();
@@ -989,7 +1188,7 @@
         },
         getListItemHasUniquePerms: function (c, listTitle, itemIdOrFilename) {
             var web, theList, queryStr, resultCollection,
-		        defer = new $.Deferred(),
+                defer = new $.Deferred(),
                 camlQuery = new SP.CamlQuery();
 
             web = c.appContextSite.get_web();
@@ -1123,9 +1322,7 @@
                 };
                 defer.reject(error);
             }
-
             return defer.promise();
-
         },
         getWebProperty: function (c, propName, storageObjName) {
             var web, properties, val, defer = new $.Deferred();
@@ -1278,9 +1475,41 @@
             }
 
             return defer.promise();
+        },
+        /**
+         * [createFolder description]
+         * @param  {Object} c
+         * @param  {String} docLib     the name of the document library
+         * @param  {String} folderName the name of the folder
+         * @return {Object}            a jQuery Deferred Object
+         */
+        createFolder: function(c, docLib, folderName) {
+            var
+                web = c.appContextSite.get_web(),
+                theLib = web.get_lists().getByTitle(docLib),
+                folderItem,
+                itemCreateInfo,
+                defer = new $.Deferred();
+
+            itemCreateInfo = new SP.ListItemCreationInformation();
+            itemCreateInfo.set_underlyingObjectType(SP.FileSystemObjectType.folder);
+            itemCreateInfo.set_leafName(folderName);
+            folderItem = theLib.addItem(itemCreateInfo);
+            folderItem.update();
+
+            c.context.load(folderItem);
+            c.context.executeQueryAsync(function () {
+                defer.resolve(true);
+            }, function (sender, args) {
+                defer.reject({
+                    sender: sender,
+                    args: args
+                });
+            });
+            return defer.promise();
         }
     };
-    //#endregion ----------------------------------------------------------- private (not exposed)  
+    //#endregion ----------------------------------------------------------- private (not exposed)
 
     spyreqs = {
         //#region ----------------------------------------------------------- spyreqs.rest
@@ -1379,7 +1608,7 @@
                 return deleteAsync(url, etag);
             },
             updateHostList: function (list) {
-                //list must have Title, Id and __metadata with property type 
+                //list must have Title, Id and __metadata with property type
                 var url = baseUrl + "web/lists/getByTitle('" + list.Title + "')?" + targetStr;
                 return updateAsync(url, list);
             },
@@ -1387,7 +1616,7 @@
                 /**
                  * updates an item in a Host List
                  * @param  {string} listTitle [the title of the Host List]
-                 * @param  {object} item      [the item to update. Must have the properties Id and __metadata]       
+                 * @param  {object} item      [the item to update. Must have the properties Id and __metadata]
                  * var item = {
                  *   "__metadata": {
                  *       type: "SP.Data.DemodemoListItem",
@@ -1414,7 +1643,7 @@
                 *        Id:"...", // this is the fields guid, requiered
                 *        __metadata:{
                 *            type:"SP.Field" // requiered
-                *            // may add etag 
+                *            // may add etag
                 *        }
                 *   };
                 */
@@ -1511,7 +1740,7 @@
             getSiteUsers: function (query) {
                 /**
                  * gets the Users of the Site
-                 * @param  {string} query [the query to execute e.g. "$filter=Email ne ''"] 
+                 * @param  {string} query [the query to execute e.g. "$filter=Email ne ''"]
                  * @return {[type]}       [description]
                  */
                 var url = baseUrl + "web/SiteUsers?" + checkQuery(query) + targetStr;
@@ -1547,7 +1776,7 @@
                         return getAsync(url);
                     })
                     .then(function (groupData) {
-                        //delete roleassignments for this group  
+                        //delete roleassignments for this group
                         var url;
                         groupId = groupData.d.Id;
                         url = appUrl + "/_api/web/lists/getbytitle('" + listTitle + "')/roleassignments/getbyprincipalid('" + groupId + "')";
@@ -1610,21 +1839,21 @@
         jsom: {
             checkHostList: function (listTitle) {
                 // This function checks if list.Title exists.
-                /* syntax example: 
+                /* syntax example:
                 spyreqs.jsom.checkHostList( "listTitle" ).then(
                     function(listExistsBool) { alert(listExistsBool); // true or false },
                     function(error) { alert('checkHostList request failed. ' +  error.args.get_message() + '\n' + error.args.get_stackTrace() ); }
-                );  
+                );
                 */
                 var c = newRemoteContextInstance();
-                // if SP.ClientContext is not loaded, c will be null. 
+                // if SP.ClientContext is not loaded, c will be null.
                 // But, send the promise and let disolve there
                 return jsom.checkList(c, listTitle);
             },
             checkAppList: function (listTitle) {
                 /* syntax example: see checkHostList */
                 var c = newLocalContextInstance();
-                // if SP.ClientContext is not loaded, c will be null. 
+                // if SP.ClientContext is not loaded, c will be null.
                 // But, send the promise and let disolve there
                 return jsom.checkList(c, listTitle);
             },
@@ -1683,33 +1912,146 @@
                 return jsom.getListFields(c, listTitle);
             },
             getHostListItems: function (listTitle, query) {
-                /* Example syntax:								
-				spyreqs.jsom.getHostListItems("myClasses","<View><Query><Where><IsNotNull><FieldRef Name='ClassGuid'/></IsNotNull></Where></Query></View>").then(
-					function(resultCollection) { 
-						var listItemEnumerator = resultCollection.getEnumerator(), out=" ";
-						while (listItemEnumerator.moveNext()) {
-							var oListItem = listItemEnumerator.get_current();
-							out += oListItem.get_item('ClassStudentGroupID');
-						}	
-						alert(out);
-					},
-					function(error) { alert('getAppListItems request failed. ' +  error.args.get_message() + '\n' + error.args.get_stackTrace() ); }
-				 ); 
-				*/
+                /* Example syntax:
+                spyreqs.jsom.getHostListItems("myClasses","<View><Query><Where><IsNotNull><FieldRef Name='ClassGuid'/></IsNotNull></Where></Query></View>").then(
+                    function(resultCollection) {
+                        var listItemEnumerator = resultCollection.getEnumerator(), out=" ";
+                        while (listItemEnumerator.moveNext()) {
+                            var oListItem = listItemEnumerator.get_current();
+                            out += oListItem.get_item('ClassStudentGroupID');
+                        }
+                        alert(out);
+                    },
+                    function(error) { alert('getAppListItems request failed. ' +  error.args.get_message() + '\n' + error.args.get_stackTrace() ); }
+                 );
+                */
                 var c = newRemoteContextInstance();
                 return jsom.getItems(c, listTitle, query);
             },
             getAppListItems: function (listTitle, query) {
-                /* Example syntax: see spyreqs.jsom.getHostListItems	 */
+                /* Example syntax: see spyreqs.jsom.getHostListItems     */
                 var c = newLocalContextInstance();
                 return jsom.getItems(c, listTitle, query);
             },
+            /**
+             * returns an Object containing the pagination info for the
+             * current query.
+             * WARNING if no page given then it is assumed that the  1st page is requested
+             *         for any other request the page must be given
+             * @param  {String} listTitle  the name of the list
+             * @param  {String} query      the caml query
+             * @param  {String} pagingInfo the paging info for previous or next page
+             * @param  {String} page       the number of the page
+             * @param  {String} perPage    the page size defualt 10 items
+             * @return {Object}            the returning object contains
+             * {
+             *       startItem: the first item of the page
+             *       endItem: the last item of the page
+             *       prevPage: true if previous page exists
+             *       previousPagingInfo: information about the previous pagr
+             *       nextPage: true if next page exists
+             *       nextPagingInfo: information about the next page,
+             *       items: the items of the current page
+             *   }
+             *
+             */
+            getAppListItemsPaginated: function (listTitle, query, pagingInfo, page, perPage) {
+                    var c = new newLocalContextInstance();
+                    return jsom.getItemsPaginated(c, listTitle, query, pagingInfo, page, perPage);
+            },
+            /**
+             * returns an Object containing the pagination info for the
+             * current query.
+             * WARNING if no page given then it is assumed that the  1st page is requested
+             *         for any other request the page must be given
+             * @param  {String} listTitle  the name of the list
+             * @param  {String} query      the caml query
+             * @param  {String} pagingInfo the paging info for previous or next page
+             * @param  {String} page       the number of the page
+             * @param  {String} perPage    the page size defualt 10 items
+             * @return {Object}            the returning object contains
+             * {
+             *       startItem: the first item of the page
+             *       endItem: the last item of the page
+             *       prevPage: true if previous page exists
+             *       previousPagingInfo: information about the previous pagr
+             *       nextPage: true if next page exists
+             *       nextPagingInfo: information about the next page,
+             *       items: the items of the current page
+             *   }
+             *
+             */
+            getHostListItemsPaginated: function (listTitle, query, pagingInfo, page, perPage) {
+                    var c = new newRemoteContextInstance();
+                    return jsom.getItemsPaginated(c, listTitle, query, pagingInfo, page, perPage);
+            },
+            /**
+             * updates multiple items in a list that exists in the host web
+             * with data same for all list items to be updated
+             * @param  {String} listTitle
+             * @param  {String} query
+             * @param  {Object} data
+             * @param  {Number} perPage
+             * @return {Object} a jQuery.Deferred Object
+             */
+            updateHostListItemsPaginated: function(listTitle, query, data, perPage) {
+                var c = new newRemoteContextInstance();
+                var callBack = function (item, data) {
+                        var dirty = false;
+                        for (var property in data) {
+                            if (item.get_item(property) !== data[property]) {
+                                item.set_item(property, data[property]);
+                                dirty = true;
+                            }
+                        }
+                        if (dirty) {
+                            item.update();
+                            return true;
+                        }
+                        return false;
+                    }
+                ;
+                return jsom.handleItemsPaginated(c, listTitle, query, data, perPage, callBack);
+            },
+            /**
+             * recycles all list items that match the query. the list shpuld exist in the host web
+             * @param  {String} listTitle
+             * @param  {String} query
+             * @param  {Object} data
+             * @param  {Number} perPage
+             * @return {Object} a jQuery.Deferred Object
+             */
+            recycleHostListItemsPaginated: function (listTitle, query, data, perPage) {
+                var c = new newRemoteContextInstance();
+                var callBack = function (item, data) {
+                    item.recycle();
+                    return true;
+                };
+
+                return jsom.handleItemsPaginated(c, listTitle, query, data, perPage, callBack);
+            },
+            /**
+             * deletes all list items that match the query. the list shpuld exist in the host web
+             * @param  {String} listTitle
+             * @param  {String} query
+             * @param  {Object} data
+             * @param  {Number} perPage
+             * @return {Object} a jQuery.Deferred Object
+             */
+            deleteHostListItemsPaginated: function (listTitle, query, data, perPage) {
+                var c = new newRemoteContextInstance();
+                var callBack = function (item, data) {
+                    item.deleteObject();
+                    return true;
+                };
+                return jsom.handleItemsPaginated(c, listTitle, query, data, perPage, callBack);
+            },
             addHostListItem: function (listTitle, itemObj) {
-                /* example: 
+                /* example:
                 spyreqs.jsom.addHostListItem("My List", {"Title":"my item", "Score":90}).then(
                     function(itemId) { alert("item was added, id:"+itemId); },
                     function(error) { alert('addHostListItem request failed. ' +  error.args.get_message() + '\n' + error.args.get_stackTrace() ); }
-                );  
+                );
                 */
                 var c = newRemoteContextInstance();
                 return jsom.addListItem(c, listTitle, itemObj);
@@ -1720,11 +2062,11 @@
                 return jsom.addListItem(c, listTitle, itemObj);
             },
             updateAppListItem: function (listTitle, itemObj, itemId) {
-                /* example: 
+                /* example:
                 spyreqs.jsom.updateAppListItem("My List", {"Title":"my item", "Score":90}, 9).then(
                     function(itemId) { alert("item was added, id:"+itemId); },
                     function(error) { alert('addHostListItem request failed. ' +  error.args.get_message() + '\n' + error.args.get_stackTrace() ); }
-                );  
+                );
                 */
                 var c = newLocalContextInstance();
                 return jsom.updateListItem(c, listTitle, itemObj, itemId);
@@ -1745,35 +2087,35 @@
                 return jsom.recycleListItem(c, listTitle, itemId);
             },
             removeHostRecentElemByTitle: function (elemTitle, literalsArray) {
-                // removes element from Host site Recent node, under QuickLaunch node. 
+                // removes element from Host site Recent node, under QuickLaunch node.
                 var c = newRemoteContextInstance();
                 return jsom.removeRecentElemByTitle(c, elemTitle, literalsArray);
             },
             removeAppRecentElemByTitle: function (elemTitle, literalsArray) {
-                // removes element from Host site Recent node, under QuickLaunch node. 
+                // removes element from Host site Recent node, under QuickLaunch node.
                 var c = newLocalContextInstance();
                 return jsom.removeRecentElemByTitle(c, elemTitle, literalsArray);
             },
             createHostList: function (listObj) {
-                /* please put all list attributes and listInformation attributes in listObj. 
-					syntax example:
-					spyreqs.jsom.createHostList({
-						"title":app_MainListName,	 
-						"url":app_MainListName, 
-						"onQuickLaunch" : true,
-						"hidden" : true,
-						"description" : "this is a list", 
-							fields : [	 
-								{"Name":"userId", "Type":"Text", "Required":"true"},
-								{"Name":"scoreFinal", "Type":"Number", "hidden":"true"},
-								{"Name":"assginedTo", "Type":"User"},
-								{"Name":"state", "Type":"Choice", "choices" : ["rejected", "approved", "passed", "proggress"]},
-								{"Name":"comments", "Type":"Note"}
-							]	 
-						})
-					.then( ...... )				
-					field properties: http://msdn.microsoft.com/en-us/library/office/jj246815.aspx
-				*/
+                /* please put all list attributes and listInformation attributes in listObj.
+                    syntax example:
+                    spyreqs.jsom.createHostList({
+                        "title":app_MainListName,
+                        "url":app_MainListName,
+                        "onQuickLaunch" : true,
+                        "hidden" : true,
+                        "description" : "this is a list",
+                            fields : [
+                                {"Name":"userId", "Type":"Text", "Required":"true"},
+                                {"Name":"scoreFinal", "Type":"Number", "hidden":"true"},
+                                {"Name":"assginedTo", "Type":"User"},
+                                {"Name":"state", "Type":"Choice", "choices" : ["rejected", "approved", "passed", "proggress"]},
+                                {"Name":"comments", "Type":"Note"}
+                            ]
+                        })
+                    .then( ...... )
+                    field properties: http://msdn.microsoft.com/en-us/library/office/jj246815.aspx
+                */
                 var c = newRemoteContextInstance();
                 return jsom.createList(c, listObj);
             },
@@ -1865,7 +2207,7 @@
                 return deferred.promise();
             },
             addUserToRoleTypeInAppList: function (userOrUserId, SPRoleType, listTitle) {
-                // add userId to SPRoleType ( inherit for ListTitle	must be broke already )	 
+                // add userId to SPRoleType ( inherit for ListTitle must be broke already )
                 var
                     deferred = $.Deferred(),
                     c = new newLocalContextInstance(),
@@ -1996,6 +2338,26 @@
                 var c = newRemoteContextInstance();
                 return jsom.createFile(c, doclib, fname, body, overwriteBool);
             },
+            /**
+             * create a folder in a document library that exists in the app web
+             * @param  {String} docLib     the name of the document library
+             * @param  {String} folderName the name of the new folder
+             * @return {Object}            a jQuery Deferred object
+             */
+            createAppFolder: function (docLib, folderName) {
+                var c = newLocalContextInstance();
+                return jsom.createFolder(c, docLib, folderName);
+            },
+            /**
+             * create a folder in a document library that exists in the host web
+             * @param  {String} docLib     the name of the document library
+             * @param  {String} folderName the name of the new folder
+             * @return {Object}            a jQuery Deferred object
+             */
+            createHostFolder: function (docLib, folderName) {
+                var c = newRemoteContextInstance();
+                return jsom.createFolder(c, docLib, folderName);
+            },
             deleteAppFile: function (fileServerRelativeUrl) {
                 var c = newLocalContextInstance();
                 return jsom.deleteFile(c, fileServerRelativeUrl);
@@ -2011,12 +2373,12 @@
             urlParamsObj: urlParamsObj,
             buildQueryString: buildQueryString,
             say: say,
-            getRegionalSettings: function (query) {
-                /**
+            /**
              * gets the Site's Regional Settings like DateFormat,DateSeparator,LocaleId...
              * @param  {string} query [optional query]
-			 * example: getRegionalSettings("$select=DateSeperator,LocaleId");			 
+             * example: getRegionalSettings("$select=DateSeperator,LocaleId");
              */
+            getRegionalSettings: function (query) {
                 var url = baseUrl + "/web/RegionalSettings?" + checkQuery(query) + targetStr;
                 return getAsync(url);
             },
@@ -2036,10 +2398,10 @@
                 hostUrl = param;
             },
             startMyTimer: function () {
-                return performance.now();
+                return window.performance.now();
             },
             getMyTimer: function (tima) {
-                return performance.now() - tima;
+                return window.performance.now() - tima;
             }
         },
         //#endregion ----------------------------------------------------------- spyreqs.utils
