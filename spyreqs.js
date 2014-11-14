@@ -132,7 +132,8 @@
             }
 			if (appUrl.length > 1) {
 				// load SP.RequestExecutor to let REST work on host site api
-				$.getScript(hostUrl + "/SP.RequestExecutor.js")
+				say("spyreqs tries to get: "+hostUrl + "/15/SP.RequestExecutor.js");
+				$.getScript(hostUrl + "/15/SP.RequestExecutor.js")
 				.done(function (script, textStatus) {
 					say('loaded: RequestExecutor.js');
 					executor = new SP.RequestExecutor(hostUrl);
