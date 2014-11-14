@@ -127,11 +127,12 @@
             var url = window.location.href;
             appUrl = hostUrl = url.substring(0, url.indexOf('/Pages'));
             if (appUrl.length < 1) {
-                appUrl = hostUrl = url.substring(0, url.indexOf("?"));
+				// try to find RequestExecutor if in SP2013
+                appUrl = hostUrl = url.substring(0, url.indexOf("/15"));
             }
 			if (appUrl.length > 1) {
 				// load SP.RequestExecutor to let REST work on host site api
-				$.getScript(hostUrl + "/_layouts/15/SP.RequestExecutor.js")
+				$.getScript(hostUrl + "/SP.RequestExecutor.js")
 				.done(function (script, textStatus) {
 					say('loaded: RequestExecutor.js');
 					executor = new SP.RequestExecutor(hostUrl);
@@ -141,17 +142,17 @@
 				.fail(function (script, textStatus) {
 					say('could not load: RequestExecutor.js');
 				});
-				// load sp.js for jsom use if not already loadad
-				if (!SP.ClientContext) {
-					say("spyreqs is waiting for sp.js");
-					initTimer = setInterval(testReady, 500);
-				} else {
-					say('sp.js is already loaded')
-					if (typeof window.onSpyreqsReady == 'function') window.onSpyreqsReady();
-				}
-            } else {
-				say("spyreqs not in SharePoint");
+			} else {
+				say("spyreqs not in SharePoint 2013");
 			}
+			// load sp.js for jsom use if not already loadad
+			if (!SP.ClientContext) {
+				say("spyreqs is waiting for sp.js");
+				initTimer = setInterval(testReady, 500);
+			} else {
+				say('sp.js is already loaded')
+				if (typeof window.onSpyreqsReady == 'function') window.onSpyreqsReady();
+			}            
         }
 
         function discoverIfApp(theurl) {
