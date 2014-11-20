@@ -8,7 +8,7 @@
             "hostWebProperties": { isUnloaded: true },
         },
         say, rest, jsom, inAppMode = true,
-        spyreqs, spyreqs_version = "0.0.28";
+        spyreqs, spyreqs_version = "0.0.29";
 
     if (!(window.performance)){
         window.performance = {};
@@ -84,9 +84,15 @@
 		}
 
         function prepRest() {
-            targetStr = "&@target='" + hostUrl + "'";
-            baseUrl = appUrl + "/_api/SP.AppContextSite(@target)/";
-            executor = new SP.RequestExecutor(appUrl);
+			if (_spPageContextInfo) {
+				if (_spPageContextInfo.webUIVersion > 4) {
+					targetStr = "&@target='" + hostUrl + "'";
+					baseUrl = appUrl + "/_api/SP.AppContextSite(@target)/";
+					executor = new SP.RequestExecutor(appUrl);
+				} else {
+					say ("Sharepoint is 2010 or older, SP.RequestExecutor not available");
+				}
+			} 
         }
 
         function tryBuildHostUrlFromAppUrl(appUrl) {
