@@ -5,19 +5,19 @@
         notAnApp_FlagSum = 0,
         webPropertiesStorage = {
             "appWebProperties": { isUnloaded: true },
-            "hostWebProperties": { isUnloaded: true },
+            "hostWebProperties": { isUnloaded: true }
         },
         say, rest, jsom, inAppMode = true,
-        spyreqs, spyreqs_version = "0.0.29";
+        spyreqs, spyreqs_version = "0.0.30";
 
     if (!(window.performance)){
         window.performance = {};
     }
-    if (!(window.performance.now)) {
+   if (!(window.performance.now)) {
         window.performance.now = function () {
             return Date.now();
-        }
-    }
+       }
+   }
 
     initSay();
     initSpyreqs();
@@ -76,23 +76,21 @@
         } else { if (initModeMsg == "") initModeMsg = "app"; }
 
         say("spyreqs init mode: " + initModeMsg);
-		if (initModeMsg != "no app") {
-			// appUrl && hostUrl are found, keep them in the windowDefaultRepo in case some page does not have them in its urlQuery params
-			windowDefaultRepo.spyreqsAppUrl = appUrl;
-			windowDefaultRepo.spyreqsHostUrl = hostUrl;
-			// windowDefaultRepo is very usefull if a custom action on some item opens the app with no SPHostUrl & SPAppWebUrl params
-		}
+        if (initModeMsg != "no app") {
+            // appUrl && hostUrl are found, keep them in the windowDefaultRepo in case some page does not have them in its urlQuery params
+            windowDefaultRepo.spyreqsAppUrl = appUrl;
+            windowDefaultRepo.spyreqsHostUrl = hostUrl;
+            // windowDefaultRepo is very usefull if a custom action on some item opens the app with no SPHostUrl & SPAppWebUrl params
+        }
 
         function prepRest() {
-			if (_spPageContextInfo) {
-				if (_spPageContextInfo.webUIVersion > 4) {
-					targetStr = "&@target='" + hostUrl + "'";
-					baseUrl = appUrl + "/_api/SP.AppContextSite(@target)/";
-					executor = new SP.RequestExecutor(appUrl);
-				} else {
-					say ("Sharepoint is 2010 or older, SP.RequestExecutor not available");
-				}
-			} 
+            if (SP.RequestExecutor) {
+                targetStr = "&@target='" + hostUrl + "'";
+                baseUrl = appUrl + "/_api/SP.AppContextSite(@target)/";
+                executor = new SP.RequestExecutor(appUrl);
+            } else {
+                say("SP.RequestExecutor not available");
+            }
         }
 
         function tryBuildHostUrlFromAppUrl(appUrl) {
@@ -133,33 +131,33 @@
             var url = window.location.href;
             appUrl = hostUrl = url.substring(0, url.indexOf('/Pages'));
             if (appUrl.length < 1) {
-				// try to find RequestExecutor if in SP2013
+                // try to find RequestExecutor if in SP2013
                 appUrl = hostUrl = url.substring(0, url.indexOf("/15"));
             }
-			if (appUrl.length > 1) {
-				// load SP.RequestExecutor to let REST work on host site api
-				say("spyreqs tries to get: "+hostUrl + "/15/SP.RequestExecutor.js");
-				$.getScript(hostUrl + "/15/SP.RequestExecutor.js")
-				.done(function (script, textStatus) {
-					say('loaded: RequestExecutor.js');
-					executor = new SP.RequestExecutor(hostUrl);
-					targetStr = "&@target='" + hostUrl + "'";
-					baseUrl = appUrl + "/_api/SP.AppContextSite(@target)/";
-				})
-				.fail(function (script, textStatus) {
-					say('could not load: RequestExecutor.js');
-				});
-			} else {
-				say("spyreqs not in SharePoint 2013");
-			}
-			// load sp.js for jsom use if not already loadad
-			if (!SP.ClientContext) {
-				say("spyreqs is waiting for sp.js");
-				initTimer = setInterval(testReady, 500);
-			} else {
-				say('sp.js is already loaded')
-				if (typeof window.onSpyreqsReady == 'function') window.onSpyreqsReady();
-			}            
+            if (appUrl.length > 1) {
+                // load SP.RequestExecutor to let REST work on host site api
+                say("spyreqs tries to get: "+hostUrl + "/15/SP.RequestExecutor.js");
+                $.getScript(hostUrl + "/15/SP.RequestExecutor.js")
+                .done(function (script, textStatus) {
+                    say('loaded: RequestExecutor.js');
+                    executor = new SP.RequestExecutor(hostUrl);
+                    targetStr = "&@target='" + hostUrl + "'";
+                    baseUrl = appUrl + "/_api/SP.AppContextSite(@target)/";
+                })
+                .fail(function (script, textStatus) {
+                    say('could not load: RequestExecutor.js');
+                });
+            } else {
+                say("spyreqs not in SharePoint 2013");
+            }
+            // load sp.js for jsom use if not already loadad
+            if (!SP.ClientContext) {
+                say("spyreqs is waiting for sp.js");
+                initTimer = setInterval(testReady, 500);
+            } else {
+                say('sp.js is already loaded')
+                if (typeof window.onSpyreqsReady == 'function') window.onSpyreqsReady();
+            }
         }
 
         function discoverIfApp(theurl) {
@@ -190,6 +188,32 @@
     //#endregion ----------------------------------------------------------- init
 
     //#region ----------------------------------------------------------- async
+
+    /**
+     *
+     * @param  {File} file [description]
+     * @return {$.Deferred} a jQuery Promise containing the arrayBuffer upon
+     *                      completion or the error
+     */
+    function _fileReaderRead(file) {
+        var fileReaderDefer = new $.Deferred();
+        var reader = new FileReader();
+
+        reader.onload = function (event) {
+            fileReaderDefer.resolve(event.target.result);
+        };
+        reader.onerror = function (event) {
+            fileReaderDefer.reject({
+                error: e.target.error
+            })
+        };
+        reader.onprogress = function (event) {
+            fileReaderDefer.notify(event);
+        }
+        reader.readAsArrayBuffer(file);
+        return fileReaderDefer.promise();
+    }
+
     function postAsync(url) {
         var defer = new $.Deferred();
 
@@ -266,6 +290,70 @@
             }
         });
         return defer.promise();
+    }
+
+    /**
+     *
+     * @param {String} url
+     * @param {File} file
+     * @param {Object} xhrObj
+     * @returns {Object} an object containing the xhr object and the promise
+     *                   xhr object is returned in order to abord the upload proccess
+     */
+    function addBinaryFile(url, file, xhrObj) {
+        var deferred = new $.Deferred(),
+            xhr = xhrObj || new XMLHttpRequest();
+
+
+        function upload(url, arrayBuffer) {
+            var uploadDefer = new $.Deferred();
+            $.ajax({
+                url: url,
+                type: "POST",
+                data: arrayBuffer,
+                processData: false,
+                headers: {
+                    "accept": "application/json;odata=verbose",
+                    "X-RequestDigest": $("#__REQUESTDIGEST").val()
+                },
+                xhr: function () {
+                    if (xhr.upload) {
+                        //Upload progress
+                        xhr.upload.addEventListener("progress", function (evt) {
+                            if (evt.lengthComputable) {
+                                //Do something with upload progress
+                                uploadDefer.notify(evt.loaded, (evt.loaded / evt.total));
+                            }
+                        }, false);
+                    }
+                    return xhr;
+                },
+                success: function (data) {
+                    uploadDefer.resolve(data);
+                },
+                error: function (err) {
+                    uploadDefer.reject(err);
+                }
+            });
+            return uploadDefer.promise();
+        }
+
+        _fileReaderRead(file).then(function (arrayBufferData) {
+            upload(url, arrayBufferData).then(function (response) {
+                deferred.resolve(response);
+            }, function (error) {
+                deferred.reject(error);
+            }, function (bytesLoaded, progress) {
+                deferred.notify(bytesLoaded, progress);
+            })
+        }, function (fileReaderError) {
+            deferred.reject(fileReaderError);
+        });
+
+        return {
+            xhr: xhr,
+            handler: deferred.promise()
+        };
     }
 
     function addFolder(url, data) {
@@ -369,6 +457,7 @@
         });
         return defer.promise();
     }
+
     //#endregion ----------------------------------------------------------- async
 
     function checkQuery(query) {
@@ -1716,12 +1805,32 @@
                 var url = appUrl + "/_api/web/GetFolderByServerRelativeUrl('" + folderName + "')/Folders?";
                 return getAsync(url);
             },
+
+             /**
+             * creates a folder in a document library which exists in the app web
+             * @param {String} documentLibrary the name of the Document Library
+             * @param  {String} folderName the name of the folder relative to the document library
+             * @return {$.Deferred} a jQuery Deferred object
+             */
+            addAppFolder: function (documentLibrary, folderName) {
+
+                var url = appUrl + "/_api/web/folders?",
+                    folderName = documentLibrary + "/" + folderName,
+                    data = {
+                        '__metadata': {
+                            'type': 'SP.Folder'
+                        },
+                        'ServerRelativeUrl': folderName
+                    };
+
+                return addFolder(url, data);
+            },
+            /**
+             * creates a Folder To a Host Document Library
+             * @param {String} documentLibrary the name of the Document Library
+             * @param {String} folderName the name of the folder
+             */
             addHostFolder: function (documentLibrary, folderName) {
-                /**
-                 * creates a Folder To a Host Document Librry
-                 * @param {string} documentLibrary [the Name of the Document Library to which the Folder should be added]
-                 * @param {string} folderName      [the Name of the Folder]
-                 */
                 var url = baseUrl + "web/folders?" + targetStr,
                     folderName = documentLibrary + "/" + folderName,
                     data = {
@@ -1741,6 +1850,69 @@
                 var url = appUrl + "/_api/web/GetFolderByServerRelativeUrl('" + folderName + "')/Files/Add(url='" + fileName + "',overwrite=true)?";
                 return addFile(url, file);
             },
+            /**
+             * adds a file to a document library which exists in the host web
+             * @param {String} folderName
+             * @param {String} fileName
+             * @param {File} file
+             * @param {Boolean} overwrite
+             * @param {XMLHttpRequest} xhrObj xhr object is used in order to abord the upload proccess if necessary
+             */
+            addHostBinaryFile: function (folderName, fileName, file, overwrite, xhrObj) {
+                var xhr = new XMLHttpRequest(),
+                    canSendBinary = !!( (!!(xhr.sendAsBinary || xhr.upload)) || (window.Uint8Array && window.ArrayBuffer)),
+                    dataAccessSupport = !!(File && (File.prototype.getAsDataURL || window.FileReader) && canSendBinary);
+                if (!dataAccessSupport) {
+                    return new $.Deferred().reject({
+                        mesage : "addHostBinaryFile is not supported by your browser"
+                    });
+                }
+                if (!(file instanceof File || File instanceof Blob)) {
+                    return new $.Deferred().reject({
+                        mesage: "File cannot be read"
+                    });
+                }
+                if (overwrite !== false) {
+                    overwrite = true;
+                }
+                var url = baseUrl + "/web/GetFolderByServerRelativeUrl('" + folderName + "')/Files/Add(url='" + fileName + "',overwrite=" + overwrite + ")?" + targetStr;
+                return addBinaryFile(url, file, xhrObj);
+            },
+            /**
+             * adds a file to a document library which exists in the app web
+             * @param {String} folderName
+             * @param {String} fileName
+             * @param {File} file
+             * @param {Boolean} overwrite
+             * @param {XMLHttpRequest} xhrObj xhr object is used in order to abord the upload proccess if necessary
+             */
+            addAppBinaryFile: function (folderName, fileName, file, overwrite, xhrObj) {
+                var xhr = new XMLHttpRequest(),
+                    canSendBinary = !!((!!(xhr.sendAsBinary || xhr.upload)) || (window.Uint8Array && window.ArrayBuffer)),
+                    dataAccessSupport = !!(File && (File.prototype.getAsDataURL || window.FileReader) && canSendBinary);
+                if (!dataAccessSupport) {
+                    return new $.Deferred().reject({
+                        mesage: "addAppBinaryFileWithProgress is not supported by your browser"
+                    });
+                }
+                if (!(file instanceof File || File instanceof Blob)) {
+                    return new $.Deferred().reject({
+                        mesage: "File cannot be read"
+                    });
+                }
+                if (overwrite !== false) {
+                    overwrite = true;
+                }
+                var url = appUrl
+                    + "/_api/web/GetFolderByServerRelativeUrl('"
+                    + folderName
+                    + "')/Files/Add(url='"
+                    + fileName
+                    + "',overwrite="
+                    + overwrite + ")?"
+                ;
+                return addBinaryFile(url, file, xhrObj);
+            },
             getHostListItemAttachments: function (listTitle, itemId) {
                 var url = baseUrl + "web/lists/getByTitle('" + listTitle + "')/Items(" + itemId + ")/AttachmentFiles?" + targetStr;
                 return getAsync(url);
@@ -1749,12 +1921,12 @@
                 var url = baseUrl + "web/lists/getByTitle('" + listTitle + "')/Items(" + itemId + ")/AttachmentFiles/add(FileName='" + fileName + "')?" + targetStr;
                 return createAsync(url, file);
             },
+            /**
+             * gets the Users of the Site
+             * @param  {string} query the query to execute e.g. "$filter=Email ne ''"
+             * @return {$.Deferred} jQuery deferred object
+             */
             getSiteUsers: function (query) {
-                /**
-                 * gets the Users of the Site
-                 * @param  {string} query [the query to execute e.g. "$filter=Email ne ''"]
-                 * @return {[type]}       [description]
-                 */
                 var url = baseUrl + "web/SiteUsers?" + checkQuery(query) + targetStr;
                 return getAsync(url);
             },
@@ -2417,7 +2589,7 @@
             }
         },
         //#endregion ----------------------------------------------------------- spyreqs.utils
-        version: function () { say("Hello, spyreqs ver " + spyreqs_version); }
+        version: function () { say("Hello, spyreqs ver " + spyreqs_version); return spyreqs_version; }
     };
 
     // liberate scope...
