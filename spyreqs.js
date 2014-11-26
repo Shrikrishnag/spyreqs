@@ -1825,6 +1825,13 @@
 
                 return addFolder(url, data);
             },
+            deleteAppFolder: function (documentLibrary, folderName) {
+                var url = appUrl +
+                          "/_api/web/GetFolderByServerRelativeUrl('" +
+                          documentLibrary + "/" + folderName +
+                          "')";
+                return deleteAsync(url);
+            },
             /**
              * creates a Folder To a Host Document Library
              * @param {String} documentLibrary the name of the Document Library
@@ -2224,6 +2231,22 @@
              */
             deleteHostListItemsPaginated: function (listTitle, query, data, perPage) {
                 var c = new newRemoteContextInstance();
+                var callBack = function (item, data) {
+                    item.deleteObject();
+                    return true;
+                };
+                return jsom.handleItemsPaginated(c, listTitle, query, data, perPage, callBack);
+            },
+            /**
+             * deletes all list items that match the query. the list shpuld exist in the host web
+             * @param  {String} listTitle
+             * @param  {String} query
+             * @param  {Object} data
+             * @param  {Number} perPage
+             * @return {Object} a jQuery.Deferred Object
+             */
+            deleteAppListItemsPaginated: function (listTitle, query, data, perPage) {
+                var c = new newLocalContextInstance();
                 var callBack = function (item, data) {
                     item.deleteObject();
                     return true;
