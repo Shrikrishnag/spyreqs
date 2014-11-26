@@ -15,7 +15,7 @@ With spyreqs, you can manage:
 <li>Inheritance,</li>
 <li>Users,</li>
 <li>Permissions,</li>
-<li>'Recent' elements node,</li> 
+<li>'Recent' elements node,</li>
 <li>Recycle Bin</li>
 <li>Files</li>
 </ul>
@@ -23,11 +23,11 @@ With spyreqs, you can manage:
 <h3>A few words</h3>
 The spyreqs library exposes to the window the spyreqs object which has three properties:<br>
 
-<ul>
+<ol>
 <li>The rest property which is an object that contains rest methods</li>
 <li>The jsom property which is an object that contains jsom methods</li>
-<li>3The utils property which is an object that contains general purpose methods</li>
-</ul>
+<li>The utils property which is an object that contains general purpose methods</li>
+</ol>
 <br>
 
 Both spyreqs.rest and spyreqs.jsom contains methods that refers either to the Application scope or to the Host Site scope. If the method is for use in the App scope then it contains 'App' in its name otherwise it contains 'Host'. Because description, parameters and results of both app methods and host methods are identical for each case there will be documentation for one of them. All spyreqs.rest and spyreqs.jsom methods return jQuery promises which are compatible with Q promises library and the subset of Q contained in Angular Framework.<br/>
@@ -41,6 +41,7 @@ Both spyreqs.rest and spyreqs.jsom contains methods that refers either to the Ap
 	getHostListFields, getAppListFields  <br/>
 	createHostList, createAppList  <br/>
 	addHostListItem, addAppListItem  <br/>
+    addAppFolder, addHostFolder <br/>
 	deleteHostListItem, deleteAppListItem  <br/>
 	updateHostListItem, updateAppListItem <br/>
 	updateHostListField, updateAppListField  <br/>
@@ -50,6 +51,7 @@ Both spyreqs.rest and spyreqs.jsom contains methods that refers either to the Ap
 	breakRoleInheritanceOfHostWeb, breakRoleInheritanceOfAppWeb	<br/>
 	resetRoleInheritanceOfHostWeb, resetRoleInheritanceOfAppWeb<br/>
 	addHostFile, addAppFile <br/>
+    addHostBinaryFile, addAppBinaryFile <br/>
 	getHostFolderFiles <br/>
 	getHostFolderFolders <br/>
 	addHostFolder 	 <br/>
@@ -57,7 +59,7 @@ Both spyreqs.rest and spyreqs.jsom contains methods that refers either to the Ap
 	getSiteUsers, getCurrentUser<br/>
 	updateHostList     <br/>
 	givePermissionToGroupToAppList <br/>
-	getHostListRoleAssigmnent <br/>
+	getHostListRoleAssigmnent, deleteAppFolder <br/>
 	postAsynq, getAsynq<br/>
 	<br/>
 <b>jsom.</b><br/>
@@ -69,6 +71,9 @@ Both spyreqs.rest and spyreqs.jsom contains methods that refers either to the Ap
 	getHostListItems, getAppListItems  <br/>
 	addHostListItem, addAppListItem  <br/>
 	updateAppListItem, updateHostListItem <br/>
+    getAppListItemsPaginated, getHostListItemsPaginated <br/>
+    updateHostListItemsPaginated, recycleHostListItemsPaginated <br/>
+    deleteHostListItemsPaginated, deleteAppListItemsPaginated <br/>
 	removeHostRecentElemByTitle, removeAppRecentElemByTitle <br/>
 	createHostList, createAppList	 <br/>
 	getAppListPermissions <br/>
@@ -76,7 +81,7 @@ Both spyreqs.rest and spyreqs.jsom contains methods that refers either to the Ap
 	getAllHostListsHasUniquePerms, getAllAppListsHasUniquePerms<br/>
 	getHostProperty, getAppProperty<br/>
 	setHostProperty, setAppProperty<br/>
-	
+
 
 <h1>spyreqs.rest methods</h1>
 For all the Rest methods the query argument is optional and compliant with the OData query operators.
@@ -87,7 +92,7 @@ You can use $filter,$select and so on.
 <h3>spyreqs.rest.getHostLists</h3>
 
 **description:** gets all the Lists from the Host Site that the App was installed.<br>
-**parameters:** 
+**parameters:**
 	<ul>
 	<li>string query (optional): the query to execute</li>
 	</ul>
@@ -187,13 +192,13 @@ spyreqs.rest.createHostList(list).then(function(data){
 
 <h3>spyreqs.rest.addHostListItem</h3>
 **description:** adds an Item to a Host List. <br>
-**parameters:** 
-<ul> 
+**parameters:**
+<ul>
 	<li>string listTitle (required): the title of the List to which the item should be added</li>
-	<li>object item (required) : the item to add.The item object must have the properies 
+	<li>object item (required) : the item to add.The item object must have the properies
 		<ul>
 			<li>string Title : the Title of the item</li>
-			<li>objext __metadata: the metadata object must have the property 
+			<li>objext __metadata: the metadata object must have the property
 				<ul>
 					<li>string type : the type of the item</li>
 				</ul>
@@ -224,7 +229,7 @@ spyreqs.rest.addHostListItem(listTitle,item).then(function(data){
 
 <h3>spyreqs.rest.deleteHostListItem</h3>
 **description:** deletes an Item in a Host List. <br>
-**parameters:** 
+**parameters:**
 <ul>
 	<li>string listTitle (required) : the title of the List</li>
 	<li>string itemId (required) : the id of the Item to delete</li>
@@ -274,7 +279,7 @@ spyreqs.rest.updateHostListItem(listTitle,item).then(function(){
 
 <h3>spyreqs.rest.updateHostListField</h3>
 **description:** updates a Field to a Host List. <br>
-**parameters:** 
+**parameters:**
 <ul>
 	<li>string listTitle (required) : the Title of the List</li>
 	<li>object field (required) : the field to update.The field object must have the properties
@@ -295,7 +300,7 @@ spyreqs.rest.updateHostListItem(listTitle,item).then(function(){
 
 <h3>spyreqs.rest.addHostListField</h3>
 **description:** adds a Field to a Host List. <br>
-**parameters:** 
+**parameters:**
 <ul>
 	<li>string listGuid (required) : the guid of the list</li>
 	<li>string fieldType (optional) : the type of the field, defaults to the generic "SP.Field"</li>
@@ -423,14 +428,14 @@ spyreqs.jsom.checkHostList(listTitle).then(function(data){
 ```javascript
 var query = "<View><Query><Where><IsNotNull><FieldRef Name='ClassGuid'/></IsNotNull></Where></Query></View>";
 
-spyreqs.jsom.getHostListItems(listTitle,query).then(function(resultCollection) { 
+spyreqs.jsom.getHostListItems(listTitle,query).then(function(resultCollection) {
 	var listItemEnumerator = resultCollection.getEnumerator(),
 		out=" ";
-	
+
 	while (listItemEnumerator.moveNext()) {
 		var oListItem = listItemEnumerator.get_current();
 		out += oListItem.get_item('ClassStudentGroupID');
-	}	
+	}
 	alert(out);
 },
 function(error) {
@@ -494,20 +499,20 @@ spyreqs.jsom.updateHostListItem("My List", {"Title":"my item", "Score":90}, 9)
 **returns:** A promise that contains the created List
 ```javascript
 var listObj = {
-	"title":"app_MainListName",	 
-	"url":"app_MainListName", 
+	"title":"app_MainListName",
+	"url":"app_MainListName",
 	"template" : "genericList",
-	"description" : "this is a list", 
-	fields : [	 
-		{"Name":"userId", "Type":"Text", "Required":"true"},								
-		{"Name":"score", "Type":"Number"}, 
+	"description" : "this is a list",
+	fields : [
+		{"Name":"userId", "Type":"Text", "Required":"true"},
+		{"Name":"score", "Type":"Number"},
 		{"Name":"scoreFinal", "Type":"Number", "hidden":"true"},
 		{"Name":"assginedTo", "Type":"User", "Required":"true"},
-		{"Name":"dateAssgined", "Type":"DateTime"},								
+		{"Name":"dateAssgined", "Type":"DateTime"},
 		{"Name":"state", "Type":"Choice", "choices" : ["rejected", "approved", "passed", "proggress"]},
-		{"Name":"comments", "Type":"Note"},								
+		{"Name":"comments", "Type":"Note"},
 		{"Name":"testLink", "Type":"URL"}
-	]	 
+	]
 };
 
 spyreqs.jsom.createHostList(listObj)
@@ -515,7 +520,7 @@ spyreqs.jsom.createHostList(listObj)
 		//success
 	},function(error){
 		//error
-	});	
+	});
 ```
 
 <h3>spyreqs.jsom.createAppList</h3>
@@ -537,22 +542,22 @@ function renameHostFile(listTitle, fileItemID, newName) {
 	file = item.get_file();
 
 	file.checkOut();
-	c.context.load(item);  
-	c.context.load(file);  
+	c.context.load(item);
+	c.context.load(file);
 	c.context.executeQueryAsync(  OnLoadSuccess, fail );
 }
 
 function OnLoadSuccess(sender, args) {
 	console.log(file.get_name() + " ok");
-	
+
 	item.set_item("Title","oktitleokefd");
 	file.set_item("Name","okefd");
 	item.update();
 	file.checkIn();
-	
-	c.context.load(item);  
-	c.context.load(file);  
-	c.context.executeQueryAsync(  OnLoadSuccess2, fail );       
+
+	c.context.load(item);
+	c.context.load(file);
+	c.context.executeQueryAsync(  OnLoadSuccess2, fail );
 }
 
 function fail(sender, args) {
