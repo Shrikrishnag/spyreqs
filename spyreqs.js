@@ -8,7 +8,7 @@
             "hostWebProperties": { isUnloaded: true }
         },
         say, rest, jsom, inAppMode = true,
-        spyreqs, spyreqs_version = "0.0.30";
+        spyreqs, spyreqs_version = "0.0.31";
 
     if (!(window.performance)){
         window.performance = {};
@@ -128,28 +128,34 @@
             // or both are missing, AND there is no hash code in the domain
             initModeMsg = "no app";
             inAppMode = false;
-            var url = window.location.href;
-            appUrl = hostUrl = url.substring(0, url.indexOf('/Pages'));
-            if (appUrl.length < 1) {
-                // try to find RequestExecutor if in SP2013
-                appUrl = hostUrl = url.substring(0, url.indexOf("/15"));
-            }
-            if (appUrl.length > 1) {
-                // load SP.RequestExecutor to let REST work on host site api
-                say("spyreqs tries to get: "+hostUrl + "/15/SP.RequestExecutor.js");
-                $.getScript(hostUrl + "/15/SP.RequestExecutor.js")
-                .done(function (script, textStatus) {
-                    say('loaded: RequestExecutor.js');
-                    executor = new SP.RequestExecutor(hostUrl);
-                    targetStr = "&@target='" + hostUrl + "'";
-                    baseUrl = appUrl + "/_api/SP.AppContextSite(@target)/";
-                })
-                .fail(function (script, textStatus) {
-                    say('could not load: RequestExecutor.js');
-                });
-            } else {
-                say("spyreqs not in SharePoint 2013");
-            }
+            var url = window.location.href, tryAt, urlPart,			
+				lookForArr = ["/Pages",	"/15", "/SitePages"],
+				buildUrlArr = ["/_layouts/15/SP.RequestExecutor.js", "/15/SP.RequestExecutor.js", "/SitePages/_layouts/15/SP.RequestExecutor.js"];
+			// try to find RequestExecutor.js
+			for (var ind = 0; ind < 3; ind++) {
+				urlPart = url.substring(0, url.indexOf(lookForArr[ind]));
+				if (urlPart.length > 1) {
+					appUrl = hostUrl = urlPart;
+					tryAt = urlPart + buildUrlArr[ind];
+					break;
+				}
+			}
+			if (urlPart.length > 1) {
+				// load SP.RequestExecutor to let REST work on host site api
+                say("spyreqs tries to get: " + tryAt);
+                $.getScript(tryAt)
+					.done(function (script, textStatus) {
+						say('loaded: RequestExecutor.js');
+						executor = new SP.RequestExecutor(hostUrl);
+						targetStr = "&@target='" + hostUrl + "'";
+						baseUrl = appUrl + "/_api/SP.AppContextSite(@target)/";
+					})
+					.fail(function (script, textStatus) {
+						say('could not load: RequestExecutor.js');
+					});
+			} else {
+				console.log("spyreqs not in SharePoint 2013");
+			}		
             // load sp.js for jsom use if not already loadad
             if (!SP.ClientContext) {
                 say("spyreqs is waiting for sp.js");
