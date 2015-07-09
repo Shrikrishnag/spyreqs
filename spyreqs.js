@@ -20,6 +20,7 @@
 	jsom,
 	inAppMode = true,
 	isReady = false,
+	initTimer,
 	spyreqs,
 	spyreqs_version = "0.0.32";
 
@@ -56,8 +57,7 @@
 
 	function initSpyreqs() {
 		// init spyreqs, check if it runs for a Sharepoint App or a solution
-		var initTimer,
-		initModeMsg = "",
+		var initModeMsg = "",
 		windowDefaultRepo = window.localStorage;
 		queryParams = urlParamsObj();
 
@@ -102,8 +102,9 @@
 				iAmNotInApp();
 			}
 		} else {
-			if (initModeMsg == "")
+			if (initModeMsg == "") {
 				initModeMsg = "app";
+			}
 		}
 
 		say("spyreqs init mode: " + initModeMsg);
@@ -2793,7 +2794,7 @@
 			return spyreqs_version;
 		}
 	};
-	
+
 	// load sp.js for jsom use if not already loadad
 	if (!SP.ClientContext) {
 		say("spyreqs is waiting for sp.js");
@@ -2804,7 +2805,7 @@
 			window.onSpyreqsReady();
 		}
 	}
-	
+
 	// liberate scope...
 	if (notAnApp_FlagSum == 2) {
 		// spyreqs is not loaded from an app
