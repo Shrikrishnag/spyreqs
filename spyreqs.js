@@ -2798,16 +2798,8 @@
 	};
 
 	// load sp.js for jsom use if not already loadad
-	if (!SP.ClientContext) {
-		say("spyreqs is waiting for sp.js");
-		initTimer = setInterval(testReady, 500);
-	} else {
-		say('sp.js is already loaded');
-		if (typeof window.onSpyreqsReady == 'function') {
-			window.onSpyreqsReady();
-		}
-	}
-
+	initTimer = setInterval(testReady, 500);
+	
 	// liberate scope...
 	if (notAnApp_FlagSum == 2) {
 		// spyreqs is not loaded from an app
