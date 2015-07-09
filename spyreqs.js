@@ -22,7 +22,7 @@
 	isReady = false,
 	initTimer,
 	spyreqs,
-	spyreqs_version = "0.0.32";
+	spyreqs_version = "0.0.33";
 
 	if (!(window.performance)) {
 		window.performance = {};
@@ -207,8 +207,10 @@
 				function () {
 				say('loaded: sp.js');
 				if (!isReady) {
-					if (typeof window.onSpyreqsReady == 'function')
+					say ('spyreqs ready, ver'+spyreqs_version);
+					if (typeof window.onSpyreqsReady == 'function') {
 						window.onSpyreqsReady();
+					}
 					isReady = true;
 				}
 				clearInterval(initTimer);
