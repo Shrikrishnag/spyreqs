@@ -221,9 +221,6 @@
 		}
 	}
 	
-	function getIsReady() {
-		return isReady;	
-	}
 	//#endregion ----------------------------------------------------------- init
 
 	//#region ----------------------------------------------------------- async
@@ -2800,7 +2797,7 @@
 			say("Hello, spyreqs ver " + spyreqs_version);
 			return spyreqs_version;
 		},
-		isReady : getIsReady()
+		isReady : function () { return isReady; }
 	};
 
 	// load sp.js for jsom use if not already loadad
