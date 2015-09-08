@@ -205,19 +205,24 @@
 		if (!isReady) {
 			SP.SOD.executeFunc('sp.js', 'SP.ClientContext.get_current',
 				function () {
-				say('loaded: sp.js');
-				if (!isReady) {
-					say ('spyreqs ready, ver'+spyreqs_version);
-					if (typeof window.onSpyreqsReady == 'function') {
-						window.onSpyreqsReady();
+					say('loaded: sp.js');
+					if (!isReady) {
+						say ('spyreqs ready, ver ' + spyreqs_version);						
+						isReady = true;
+						if (typeof window.onSpyreqsReady == 'function') {
+							window.onSpyreqsReady();
+						}
 					}
-					isReady = true;
+					clearInterval(initTimer);
 				}
-				clearInterval(initTimer);
-			});
+			);
 		} else {
 			clearInterval(initTimer);
 		}
+	}
+	
+	function getIsReady() {
+		return isReady;	
 	}
 	//#endregion ----------------------------------------------------------- init
 
@@ -2795,7 +2800,7 @@
 			say("Hello, spyreqs ver " + spyreqs_version);
 			return spyreqs_version;
 		},
-		isReady : isReady
+		isReady : getIsReady()
 	};
 
 	// load sp.js for jsom use if not already loadad
