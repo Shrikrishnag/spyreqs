@@ -22,7 +22,7 @@
 	isReady = false,
 	initTimer,
 	spyreqs,
-	spyreqs_version = "0.0.33";
+	spyreqs_version = "0.0.34";
 
 	if (!(window.performance)) {
 		window.performance = {};
@@ -2794,7 +2794,8 @@
 		version : function () {
 			say("Hello, spyreqs ver " + spyreqs_version);
 			return spyreqs_version;
-		}
+		},
+		isReady : isReady
 	};
 
 	// load sp.js for jsom use if not already loadad
