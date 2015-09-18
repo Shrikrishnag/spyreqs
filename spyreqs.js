@@ -22,7 +22,7 @@
 	isReady = false,
 	initTimer,
 	spyreqs,
-	spyreqs_version = "0.0.34";
+	spyreqs_version = "0.0.35";
 
 	if (!(window.performance)) {
 		window.performance = {};
@@ -546,14 +546,17 @@
 			});
 			return null;
 		}
-		if (!inAppMode) {
+		if (spyreqs.spContext != null) {
+			// get a pre defined spContext if user wants to run spyreqs for another web
+			context = spyreqs.spContext;
+		} else if (!inAppMode) {
 			//say("not-in-app-mode. current web used");
 			context = new SP.ClientContext.get_current();
 		} else {
 			context = new SP.ClientContext(appUrl);
 		}
 		returnObj.context = context;
-		// nasty hack safelly find the obj
+		// nasty hack safelly find the obj when current weeb is not an app
 		returnObj.appContextSite = context;
 		return returnObj;
 	}
@@ -2797,7 +2800,8 @@
 			say("Hello, spyreqs ver " + spyreqs_version);
 			return spyreqs_version;
 		},
-		isReady : function () { return isReady; }
+		isReady : function () { return isReady; },
+		spContext : null
 	};
 
 	// load sp.js for jsom use if not already loadad
