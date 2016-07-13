@@ -22,7 +22,7 @@
 	isReady = false,
 	initTimer,
 	spyreqs,
-	spyreqs_version = "0.0.35";
+	spyreqs_version = "0.0.36";
 
 	if (!(window.performance)) {
 		window.performance = {};
@@ -136,15 +136,20 @@
 		}
 
 		function tryBuildAppUrl() {
-			// remove file name (usually default.aspx)
-			if (!window.location.origin) {
-				// fix IE bug of not define origin
-				window.location.origin = window.location.protocol + "//" + window.location.hostname + (window.location.port ? ':' + window.location.port : '');
+			if (_spPageContextInfo && _spPageContextInfo.webAbsoluteUrl) {
+				appUrl = _spPageContextInfo.webAbsoluteUrl;			
 			}
-			appUrl = window.location.origin + removeLastSlash(window.location.pathname);
-			if (appUrl.toLowerCase().substring(appUrl.length - "/Pages".length) == "/pages") {
-				// remove that too
-				appUrl = appUrl.slice(0, appUrl.lastIndexOf("/"));
+			else {			
+				// remove file name (usually default.aspx)
+				if (!window.location.origin) {
+					// fix IE bug of not define origin
+					window.location.origin = window.location.protocol + "//" + window.location.hostname + (window.location.port ? ':' + window.location.port : '');
+				}
+				appUrl = window.location.origin + removeLastSlash(window.location.pathname);
+				if (appUrl.toLowerCase().substring(appUrl.length - "/Pages".length) == "/pages") {
+					// remove that too
+					appUrl = appUrl.slice(0, appUrl.lastIndexOf("/"));
+				}
 			}
 			return appUrl;
 		}
@@ -166,12 +171,20 @@
 			lookForArr = ["/Pages", "/15", "/SitePages"],
 			buildUrlArr = ["/_layouts/15/SP.RequestExecutor.js", "/15/SP.RequestExecutor.js", "/SitePages/_layouts/15/SP.RequestExecutor.js"];
 			// try to find RequestExecutor.js
-			for (var ind = 0; ind < 3; ind++) {
-				urlPart = url.substring(0, url.indexOf(lookForArr[ind]));
-				if (urlPart.length > 1) {
-					appUrl = hostUrl = urlPart;
-					tryAt = urlPart + buildUrlArr[ind];
-					break;
+			if (_spPageContextInfo && _spPageContextInfo.webAbsoluteUrl) {
+				urlPart = _spPageContextInfo.webAbsoluteUrl;
+				tryAt = urlPart + buildUrlArr[0];		
+				appUrl = hostUrl = urlPart;				
+			}
+			else 
+			{
+				for (var ind = 0; ind < 3; ind++) {
+					urlPart = url.substring(0, url.indexOf(lookForArr[ind]));
+					if (urlPart.length > 1) {
+						appUrl = hostUrl = urlPart;
+						tryAt = urlPart + buildUrlArr[ind];
+						break;
+					}
 				}
 			}
 			if (urlPart.length > 1) {
